@@ -1,1 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Pixel Kombat 2D</title>
+    <style>
+        body { margin: 0; background: #222; overflow: hidden; font-family: sans-serif; }
+        #game-container { position: relative; width: 800px; height: 400px; margin: 50px auto; background: linear-gradient(to bottom, #444, #111); border: 4px solid #fff; overflow: hidden; }
+        
+        /* HUD - Barras de Vida */
+        .hud { position: absolute; width: 100%; display: flex; justify-content: space-between; padding: 10px; box-sizing: border-box; }
+        .health-bar { width: 300px; height: 20px; background: #550000; border: 2px solid #fff; position: relative; }
+        .health-fill { height: 100%; background: #ff0000; width: 100%; transition: width 0.2s; }
+        .super-bar { width: 150px; height: 10px; background: #222; margin-top: 5px; border: 1px solid #aaa; }
+        .super-fill { height: 100%; background: cyan; width: 0%; transition: width 0.3s; }
 
+        /* Personagens */
+        .player { position: absolute; width: 50px; height: 80px; bottom: 0; transition: transform 0.1s; }
+        #p1 { background: #3498db; left: 100px; }
+        #p2 { background: #e74c3c; right: 100px; }
+        
+        /* Efeitos Visuais */
+        .hitbox { position: absolute; background: rgba(255, 255, 255, 0.5); display: none; }
+        .special-effect { position: absolute; background: cyan; box-shadow: 0 0 20px cyan; border-radius: 50%; display: none; }
+        
+        .controls-hint { color: #fff; text-align: center; margin-top: 20px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div class="hud">
+        <div>
+            <div class="health-bar"><div id="p1-health" class="health-fill"></div></div>
+            <div class="super-bar"><div id="p1-super" class="super-fill"></div></div>
+        </div>
+        <div>
+            <div class="health-bar"><div id="p2-health" class="health-fill"></div></div>
+            <div class="super-bar" style="margin-left: auto;"><div id="p2-super" class="super-fill"></div></div>
+        </div>
+    </div>
+
+    <div id="p1" class="player"></div>
+    <div id="p2" class="player"></div>
+</div>
+
+<div class="controls-hint">
+    <strong>P1:</strong> A/D (Mover), W (Pulo), F (Soco), G (ESPECIAL) | 
+    <strong>P2:</strong> Setas (Mover), Seta Cima (Pulo), L (Soco), K (ESPECIAL)
+</div>
+
+<script>
+    const config = {
+        gravity: 0.8,
+        jumpForce: 15,
+        speed: 5,
+        ground: 320 // Altura compensando o tamanho do player
+    };
+
+    const gameState = {
+        p1: { x: 100, y: 0, vy: 0, hp: 100, super: 0, jumping: false, side: 1 },
+        p2: { x: 650, y: 0, vy: 0, hp: 100, super: 0, jumping: false, side: -1 }
+    };
+
+    const keys = {};
+
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    function update() {
+        // Movimento P1
+        if (keys['KeyA']) gameState.p1.x -= config.speed;
+        if (keys['KeyD']) gameState.p1.x += config.speed;
+        if (keys['KeyW'] && !gameState.p1.jumping) {
+            gameState.p1.vy = -config.jumpForce;
+            gameState.p1.jumping = true;
+        }
+
+        // Movimento P2
+        if (keys['ArrowLeft']) gameState.p2.x -= config.speed;
+        if (keys['ArrowRight']) gameState.p2.x += config.speed;
+        if (keys['ArrowUp'] && !gameState.p2.jumping) {
+            gameState.p2.vy = -config.jumpForce;
+            gameState.p2.jumping = true;
+        }
+
+        // Ataques
+        if (keys['KeyF']) attack('p1', 'p2', 5);
+        if (keys['KeyG'] && gameState.p1.super >= 100) superAttack('p1', 'p2');
+        
+        if (keys['KeyL']) attack('p2', 'p1', 5);
+        if (keys['KeyK'] && gameState.p2.super >= 100) superAttack('p2', 'p1');
+
+        applyPhysics(gameState.p1);
+        applyPhysics(gameState.p2);
+        draw();
+        requestAnimationFrame(update);
+    }
+
+    function applyPhysics(p) {
+        p.vy += config.gravity;
+        p.y += p.vy;
+        if (p.y >= 0) {
+            p.y = 0;
+            p.vy = 0;
+            p.jumping = false;
+        }
+        // Limites da tela
+        p.x = Math.max(0, Math.min(750, p.x));
+    }
+
+    function attack(attackerId, victimId, damage) {
+        const a = gameState[attackerId];
+        const v = gameState[victimId];
+        const dist = Math.abs(a.x - v.x);
+
+        if (dist < 70 && Math.abs(a.y - v.y) < 50) {
+            v.hp -= 0.5; // Dano contínuo enquanto pressiona
+            a.super = Math.min(100, a.super + 1);
+            updateHUD();
+        }
+    }
+
+    function superAttack(attackerId, victimId) {
+        const a = gameState[attackerId];
+        const v = gameState[victimId];
+        v.hp -= 20;
+        a.super = 0;
+        
+        // Feedback visual simples (flash na tela)
+        document.getElementById('game-container').style.background = 'white';
+        setTimeout(() => {
+            document.getElementById('game-container').style.background = 'linear-gradient(to bottom, #444, #111)';
+        }, 100);
+        
+        updateHUD();
+    }
+
+    function updateHUD() {
+        document.getElementById('p1-health').style.width = gameState.p1.hp + '%';
+        document.getElementById('p2-health').style.width = gameState.p2.hp + '%';
+        document.getElementById('p1-super').style.width = gameState.p1.super + '%';
+        document.getElementById('p2-super').style.width = gameState.p2.super + '%';
+        
+        if(gameState.p1.hp <= 0) alert("Player 2 Venceu!");
+        if(gameState.p2.hp <= 0) alert("Player 1 Venceu!");
+    }
+
+    function draw() {
+        const p1El = document.getElementById('p1');
+        const p2El = document.getElementById('p2');
+        
+        p1El.style.transform = `translate(${gameState.p1.x}px, ${gameState.p1.y}px)`;
+        p2El.style.transform = `translate(${gameState.p2.x}px, ${gameState.p2.y}px)`;
+    }
+
+    update();
+</script>
+
+</body>
+</html>
