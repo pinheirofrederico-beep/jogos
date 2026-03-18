@@ -2,216 +2,180 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Super JS Fighter</title>
+    <title>2 Player Racing - Nitro Edition</title>
     <style>
-        body { margin: 0; background: #1a1a1a; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Courier New', Courier, monospace; overflow: hidden; }
-        canvas { background: linear-gradient(to bottom, #2c3e50, #000); border: 4px solid #fff; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        .instrucoes { color: white; margin-top: 15px; text-align: center; line-height: 1.6; }
-        b { color: #f1c40f; }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #222;
+            color: white;
+            font-family: sans-serif;
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            border: 5px solid #444;
+            background-color: #333;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .controls {
+            display: flex;
+            gap: 50px;
+            margin-top: 10px;
+        }
+        .key {
+            background: #444;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #ffda44;
+        }
     </style>
 </head>
 <body>
 
-<canvas id="gameCanvas"></canvas>
+    <h2>2 Player Racing - Nitro!</h2>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
 
-<div class="instrucoes">
-    <b>P1:</b> [WAD] Mover/Pular | <b>[F]</b> Soco | <b>[G]</b> SUPER ESPECIAL (Barra 100%)<br>
-    <b>P2:</b> [Setas] Mover/Pular | <b>[L]</b> Soco | <b>[K]</b> SUPER ESPECIAL (Barra 100%)
-</div>
+    <div class="controls">
+        <div>
+            <p><strong>Player 1 (Vermelho):</strong></p>
+            <p>Mover: <span class="key">WASD</span> | Nitro: <span class="key">Shift L</span></p>
+        </div>
+        <div>
+            <p><strong>Player 2 (Azul):</strong></p>
+            <p>Mover: <span class="key">Setas</span> | Nitro: <span class="key">Enter</span></p>
+        </div>
+    </div>
 
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
 
-canvas.width = 800;
-canvas.height = 400;
+    // Configurações Globais
+    const friction = 0.97; // Atrito para reduzir velocidade gradualmente
+    
+    // Objeto do Carro
+    class Car {
+        constructor(x, y, color, controls) {
+            this.x = x;
+            this.y = y;
+            this.width = 30;
+            this.height = 50;
+            this.color = color;
+            this.angle = 0;
+            this.speed = 0;
+            this.maxSpeed = 5;
+            this.accel = 0.2;
+            this.rotateSpeed = 0.05;
+            this.nitro = 100;
+            this.isNitroActive = false;
+            this.controls = controls;
+        }
 
-const gravity = 0.7;
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.angle);
+            
+            // Desenha o corpo do carro
+            ctx.fillStyle = this.color;
+            ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+            
+            // Detalhe: Frente do carro (indicador de direção)
+            ctx.fillStyle = "white";
+            ctx.fillRect(-this.width/2, -this.height/2, this.width, 10);
 
-class Lutador {
-    constructor({ position, color, keys, controls, name, offset }) {
-        this.name = name;
-        this.pos = position;
-        this.vel = { x: 0, y: 0 };
-        this.width = 50;
-        this.height = 100;
-        this.color = color;
-        this.health = 100;
-        this.superBar = 0;
-        this.isAttacking = false;
-        this.isSpecial = false;
-        this.controls = controls;
-        this.lastKey = '';
-        this.onGround = false;
-        this.attackBox = { pos: { x: this.pos.x, y: this.pos.y }, width: 100, height: 50, offset };
+            // Efeito visual do Nitro
+            if (this.isNitroActive && this.nitro > 0) {
+                ctx.fillStyle = "cyan";
+                ctx.fillRect(-this.width/4, this.height/2, this.width/2, 15);
+            }
+
+            ctx.restore();
+
+            // Barra de Nitro acima do carro
+            ctx.fillStyle = "#555";
+            ctx.fillRect(this.x - 20, this.y - 40, 40, 5);
+            ctx.fillStyle = "cyan";
+            ctx.fillRect(this.x - 20, this.y - 40, (this.nitro/100) * 40, 5);
+        }
+
+        update(keys) {
+            // Controles de Movimento
+            if (keys[this.controls.up]) {
+                this.speed += this.accel;
+            } else if (keys[this.controls.down]) {
+                this.speed -= this.accel;
+            }
+
+            // Nitro
+            if (keys[this.controls.nitro] && this.nitro > 0) {
+                this.speed += this.accel * 2;
+                this.nitro -= 1;
+                this.isNitroActive = true;
+            } else {
+                this.isNitroActive = false;
+                if (this.nitro < 100) this.nitro += 0.1; // Recarrega devagar
+            }
+
+            // Rotação (só gira se estiver em movimento)
+            if (Math.abs(this.speed) > 0.1) {
+                const direction = this.speed > 0 ? 1 : -1;
+                if (keys[this.controls.left]) this.angle -= this.rotateSpeed * direction;
+                if (keys[this.controls.right]) this.angle += this.rotateSpeed * direction;
+            }
+
+            // Física Básica
+            this.speed *= friction;
+            if (this.speed > this.maxSpeed && !this.isNitroActive) this.speed = this.maxSpeed;
+
+            this.x += Math.sin(this.angle) * this.speed;
+            this.y -= Math.cos(this.angle) * this.speed;
+
+            // Colisão com as bordas (simples)
+            if (this.x < 0) this.x = canvas.width;
+            if (this.x > canvas.width) this.x = 0;
+            if (this.y < 0) this.y = canvas.height;
+            if (this.y > canvas.height) this.y = 0;
+        }
     }
 
-    draw() {
-        // Personagem
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.pos.x, this.pos.y, this.width, this.height);
+    // Instanciando Jogadores
+    const p1 = new Car(300, 500, "red", {
+        up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', nitro: 'ShiftLeft'
+    });
 
-        // Feedback visual de ataque
-        if (this.isAttacking) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.fillRect(this.attackBox.pos.x, this.attackBox.pos.y, this.attackBox.width, this.attackBox.height);
-        }
+    const p2 = new Car(500, 500, "dodgerblue", {
+        up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', nitro: 'Enter'
+    });
+
+    // Gerenciador de Teclas
+    const keys = {};
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    function gameLoop() {
+        // Limpar tela
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Desenhar Pista (opcional - simples grama/estrada)
+        ctx.strokeStyle = "#555";
+        ctx.setLineDash([20, 20]);
+        ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
+
+        // Atualizar e Desenhar Carros
+        p1.update(keys);
+        p2.update(keys);
         
-        // Efeito Visual do Super
-        if (this.isSpecial) {
-            ctx.strokeStyle = 'cyan';
-            ctx.lineWidth = 5;
-            ctx.strokeRect(this.pos.x - 5, this.pos.y - 5, this.width + 10, this.height + 10);
-        }
+        p1.draw();
+        p2.draw();
+
+        requestAnimationFrame(gameLoop);
     }
 
-    update() {
-        this.draw();
-        
-        // Atualiza posição da hitbox de ataque baseada na direção
-        this.attackBox.pos.x = this.pos.x + this.attackBox.offset.x;
-        this.attackBox.pos.y = this.pos.y + 20;
-
-        this.pos.x += this.vel.x;
-        this.pos.y += this.vel.y;
-
-        // Gravidade e Chão
-        if (this.pos.y + this.height + this.vel.y >= canvas.height) {
-            this.vel.y = 0;
-            this.pos.y = canvas.height - this.height;
-            this.onGround = true;
-        } else {
-            this.vel.y += gravity;
-            this.onGround = false;
-        }
-
-        // Limites Laterais
-        if (this.pos.x < 0) this.pos.x = 0;
-        if (this.pos.x + this.width > canvas.width) this.pos.x = canvas.width - this.width;
-    }
-
-    atacar() {
-        this.isAttacking = true;
-        setTimeout(() => { this.isAttacking = false; }, 100);
-    }
-
-    lancarSuper() {
-        if (this.superBar >= 100) {
-            this.isSpecial = true;
-            this.superBar = 0;
-            this.isAttacking = true;
-            setTimeout(() => { 
-                this.isAttacking = false; 
-                this.isSpecial = false;
-            }, 500);
-            return true;
-        }
-        return false;
-    }
-}
-
-const p1 = new Lutador({
-    position: { x: 100, y: 0 },
-    color: '#3498db',
-    name: 'Player 1',
-    offset: { x: 0, y: 0 }
-});
-
-const p2 = new Lutador({
-    position: { x: 650, y: 0 },
-    color: '#e74c3c',
-    name: 'Player 2',
-    offset: { x: -50, y: 0 }
-});
-
-const keys = {
-    a: { pressed: false }, d: { pressed: false }, w: { pressed: false },
-    ArrowRight: { pressed: false }, ArrowLeft: { pressed: false }, ArrowUp: { pressed: false }
-};
-
-window.addEventListener('keydown', (e) => {
-    switch (e.key) {
-        // P1
-        case 'a': keys.a.pressed = true; p1.lastKey = 'a'; p1.attackBox.offset.x = -50; break;
-        case 'd': keys.d.pressed = true; p1.lastKey = 'd'; p1.attackBox.offset.x = 50; break;
-        case 'w': if(p1.onGround) p1.vel.y = -18; break;
-        case 'f': p1.atacar(); checkHit(p1, p2, 5); break;
-        case 'g': if(p1.lancarSuper()) checkHit(p1, p2, 35); break;
-
-        // P2
-        case 'ArrowLeft': keys.ArrowLeft.pressed = true; p2.lastKey = 'ArrowLeft'; p2.attackBox.offset.x = -50; break;
-        case 'ArrowRight': keys.ArrowRight.pressed = true; p2.lastKey = 'ArrowRight'; p2.attackBox.offset.x = 50; break;
-        case 'ArrowUp': if(p2.onGround) p2.vel.y = -18; break;
-        case 'l': p2.atacar(); checkHit(p2, p1, 5); break;
-        case 'k': if(p2.lancarSuper()) checkHit(p2, p1, 35); break;
-    }
-});
-
-window.addEventListener('keyup', (e) => {
-    if (e.key === 'a') keys.a.pressed = false;
-    if (e.key === 'd') keys.d.pressed = false;
-    if (e.key === 'ArrowLeft') keys.ArrowLeft.pressed = false;
-    if (e.key === 'ArrowRight') keys.ArrowRight.pressed = false;
-});
-
-function checkHit(atttacker, victim, damage) {
-    if (
-        atttacker.attackBox.pos.x < victim.pos.x + victim.width &&
-        atttacker.attackBox.pos.x + atttacker.attackBox.width > victim.pos.x &&
-        atttacker.attackBox.pos.y < victim.pos.y + victim.height &&
-        atttacker.attackBox.pos.y + atttacker.attackBox.height > victim.pos.y
-    ) {
-        victim.health -= damage;
-        atttacker.superBar = Math.min(100, atttacker.superBar + 10);
-    }
-}
-
-function desenharHUD() {
-    // Vida P1
-    ctx.fillStyle = '#550000'; ctx.fillRect(20, 20, 300, 20);
-    ctx.fillStyle = '#ff0000'; ctx.fillRect(20, 20, p1.health * 3, 20);
-    // Super P1
-    ctx.fillStyle = '#222'; ctx.fillRect(20, 45, 150, 10);
-    ctx.fillStyle = 'cyan'; ctx.fillRect(20, 45, p1.superBar * 1.5, 10);
-
-    // Vida P2
-    ctx.fillStyle = '#550000'; ctx.fillRect(480, 20, 300, 20);
-    ctx.fillStyle = '#ff0000'; ctx.fillRect(480 + (300 - p2.health * 3), 20, p2.health * 3, 20);
-    // Super P2
-    ctx.fillStyle = '#222'; ctx.fillRect(630, 45, 150, 10);
-    ctx.fillStyle = 'cyan'; ctx.fillRect(630 + (150 - p2.superBar * 1.5), 45, p2.superBar * 1.5, 10);
-}
-
-function animate() {
-    window.requestAnimationFrame(animate);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // P1 Movement
-    p1.vel.x = 0;
-    if (keys.a.pressed && p1.lastKey === 'a') p1.vel.x = -5;
-    else if (keys.d.pressed && p1.lastKey === 'd') p1.vel.x = 5;
-
-    // P2 Movement
-    p2.vel.x = 0;
-    if (keys.ArrowLeft.pressed && p2.lastKey === 'ArrowLeft') p2.vel.x = -5;
-    else if (keys.ArrowRight.pressed && p2.lastKey === 'ArrowRight') p2.vel.x = 5;
-
-    p1.update();
-    p2.update();
-    desenharHUD();
-
-    if (p1.health <= 0 || p2.health <= 0) {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'white';
-        ctx.font = '40px Courier';
-        ctx.fillText(p1.health <= 0 ? "PLAYER 2 VENCEU!" : "PLAYER 1 VENCEU!", 220, 200);
-    }
-}
-
-animate();
+    gameLoop();
 </script>
 </body>
 </html>
-
-
