@@ -213,3 +213,26 @@ animate();
 </script>
 </body>
 </html>
+
+
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Mortal Kombat JS</title>
+    <style>
+        body { margin: 0; background: #1a1a1a; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Press Start 2P', cursive; overflow: hidden; }
+        /* Importar uma fonte pixelada para o estilo "Mortal Kombat" */
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        canvas { background: linear-gradient(to bottom, #2c3e50, #000); border: 4px solid #fff; box-shadow: 0 0 20px rgba(0,0,0,0.5); image-rendering: pixelated; }
+        .instrucoes { color: white; margin-top: 15px; text-align: center; line-height: 1.6; font-size: 14px; }
+        b { color: #f1c40f; }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div class="instrucoes">
