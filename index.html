@@ -3,73 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Drag Race 400km/h</title>
+    <title>Nitro Drag 1000km - Extreme Edition</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #222; font-family: 'Arial', sans-serif; color: white; }
+        :root { --speed-blur: 0px; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Orbitron', sans-serif; color: #fff; }
         
-        /* Cenário 3D */
-        #game-container {
-            perspective: 800px;
+        /* Ambiente 3D */
+        #world {
+            perspective: 600px;
             width: 100vw; height: 100vh;
-            display: flex; justify-content: center; align-items: flex-end;
-            overflow: hidden; background: linear-gradient(#44a, #000);
+            background: linear-gradient(to bottom, #020107 0%, #201b46 50%, #483137 100%);
+            display: flex; justify-content: center; overflow: hidden;
         }
 
+        #road-container {
+            position: absolute; bottom: 0; width: 100%; height: 80%;
+            transform-style: preserve-3d; transform: rotateX(70deg);
+        }
+
+        /* A Pista com Detalhes */
         #track {
-            position: absolute; width: 400px; height: 10000px;
-            background: repeating-linear-gradient(#333 0, #333 100px, #444 100px, #444 200px);
-            transform: rotateX(80deg) translateY(-4800px);
-            transform-origin: bottom;
-            border-left: 10px solid white; border-right: 10px solid white;
+            position: absolute; width: 1200px; height: 40000px;
+            left: calc(50% - 600px); bottom: 0;
+            background: 
+                /* Faixa central */
+                linear-gradient(90deg, transparent 48%, #fff 48%, #fff 52%, transparent 52%),
+                /* Faixas laterais */
+                linear-gradient(90deg, #555 0%, #555 2%, transparent 2%, transparent 98%, #555 98%, #555 100%),
+                /* Textura Asfalto */
+                repeating-linear-gradient(#222 0, #222 50px, #282828 50px, #282828 100px);
+            box-shadow: 0 0 50px rgba(0,0,0,1);
         }
 
-        .line {
-            position: absolute; left: 50%; width: 10px; height: 100%;
-            border-left: 5px dashed yellow; transform: translateX(-50%);
+        /* Grama/Terra lateral */
+        .scenery {
+            position: absolute; width: 3000px; height: 40000px;
+            left: calc(50% - 1500px); bottom: 0; z-index: -1;
+            background: repeating-linear-gradient(#0a240a 0, #0a240a 500px, #061a06 500px, #061a06 1000px);
         }
 
-        /* Carro */
+        /* Postes de Luz para sensação de movimento */
+        .pole {
+            position: absolute; width: 10px; height: 100px;
+            background: #111; border-top: 40px solid #ffcc00;
+        }
+
+        /* O Carro */
         #car {
-            position: absolute; bottom: 50px; width: 80px; height: 120px;
-            background: #d00; border-radius: 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-            z-index: 10; transition: transform 0.1s;
+            position: absolute; bottom: 100px; width: 120px; height: 210px;
+            background-image: url('https://i.imgur.com/uF9T2U6.png'); /* Imagem esportiva top view */
+            background-size: contain; background-repeat: no-repeat;
+            z-index: 100; filter: drop-shadow(0 25px 15px rgba(0,0,0,0.9)) blur(var(--speed-blur));
+            transition: transform 0.05s;
         }
 
-        /* UI */
-        #hud {
-            position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.7);
-            padding: 20px; border-radius: 10px; border: 2px solid #555;
+        /* HUD Moderno */
+        #ui-panel {
+            position: absolute; bottom: 30px; left: 30px; 
+            background: rgba(0,0,0,0.8); padding: 20px; border-left: 5px solid #00f2ff;
+            border-radius: 0 15px 15px 0; min-width: 250px;
         }
 
-        .stat { font-size: 24px; margin-bottom: 5px; }
-        .stat span { color: #0f0; font-weight: bold; }
+        .gauge-label { font-size: 12px; color: #00f2ff; text-transform: uppercase; }
+        .gauge-val { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
         
-        #controls-hint { position: absolute; bottom: 20px; right: 20px; text-align: right; opacity: 0.7; }
-        #finish { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-                   font-size: 50px; display: none; text-shadow: 0 0 20px gold; }
+        #speedometer { color: #fff; text-shadow: 0 0 10px #00f2ff; }
+        #finish-line { 
+            position: absolute; top: 30%; width: 100%; text-align: center; 
+            font-size: 80px; display: none; color: gold; font-weight: bold; text-shadow: 0 0 30px #000;
+        }
+
+        .manual-flash { animation: flash 0.5s infinite; color: red !important; }
+        @keyframes flash { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <div id="track"><div class="line"></div></div>
+    <div id="world">
+        <div id="road-container">
+            <div class="scenery"></div>
+            <div id="track"></div>
+        </div>
         <div id="car"></div>
     </div>
 
-    <div id="hud">
-        <div class="stat">Distância: <span id="dist">0</span>m / 1000m</div>
-        <div class="stat">Velocidade: <span id="speed">0</span> km/h</div>
-        <div class="stat">Marcha: <span id="gear">1</span></div>
-        <div class="stat">Modo: <span id="mode">Manual</span> (M para trocar)</div>
+    <div id="ui-panel">
+        <div class="gauge-label">Velocidade</div>
+        <div class="gauge-val"><span id="speed">0</span> <small>KM/H</small></div>
+        
+        <div class="gauge-label">Distância</div>
+        <div class="gauge-val"><span id="dist">0.0</span> <small>KM / 1000</small></div>
+
+        <div class="gauge-label">Marcha</div>
+        <div class="gauge-val" id="gear-box"><span id="gear">1</span></div>
+
+        <div style="font-size: 10px; opacity: 0.7;">W: ACELERA | SETAS: MARCHAS | M: AUTO</div>
     </div>
 
-    <div id="finish">CHEGADA! <br> <span id="final-time"></span></div>
-
-    <div id="controls-hint">
-        <b>W:</b> Acelerar | <b>S:</b> Frear <br>
-        <b>Seta Cima:</b> Subir Marcha | <b>Seta Baixo:</b> Reduzir <br>
-        <b>M:</b> Alternar Manual/Auto
-    </div>
+    <div id="finish-line">VENCEU! 1000KM</div>
 
     <script>
         const track = document.getElementById('track');
@@ -77,73 +108,73 @@
         const speedEl = document.getElementById('speed');
         const gearEl = document.getElementById('gear');
         const distEl = document.getElementById('dist');
-        const modeEl = document.getElementById('mode');
+        const gearBox = document.getElementById('gear-box');
 
         let speed = 0;
-        let distance = 0;
+        let distanceKm = 0;
         let gear = 1;
-        let pos = -4800;
-        let isManual = true;
+        let trackPos = -38000;
+        let isAuto = false;
         let keys = {};
-        let startTime = null;
-        let finished = false;
 
-        const maxSpeedPerGear = [0, 80, 160, 240, 320, 380, 405];
-        const acceleration = 0.5;
+        const gearMax = [0, 90, 160, 240, 310, 375, 405];
 
-        document.addEventListener('keydown', (e) => { 
-            keys[e.key] = true; 
-            if(e.key === 'm' || e.key === 'M') {
-                isManual = !isManual;
-                modeEl.innerText = isManual ? "Manual" : "Automático";
+        window.addEventListener('keydown', e => {
+            keys[e.key] = true;
+            if(e.key.toLowerCase() === 'm') isAuto = !isAuto;
+            if(!isAuto) {
+                if(e.key === 'ArrowUp' && gear < 6) gear++;
+                if(e.key === 'ArrowDown' && gear > 1) gear--;
             }
-            if(isManual && e.key === 'ArrowUp' && gear < 6) gear++;
-            if(isManual && e.key === 'ArrowDown' && gear > 1) gear--;
         });
-        document.addEventListener('keyup', (e) => keys[e.key] = false);
+        window.addEventListener('keyup', e => keys[e.key] = false);
 
         function update() {
-            if(finished) return;
-
-            // Lógica de aceleração
+            // Aceleração e Física
             if (keys['w'] || keys['W']) {
-                if(!startTime) startTime = Date.now();
-                if (speed < maxSpeedPerGear[gear]) {
-                    speed += acceleration;
+                if (speed < gearMax[gear]) speed += 0.8;
+                // Efeito de "corte de giro"
+                if (speed >= gearMax[gear] && !isAuto) {
+                    speed -= 2;
+                    gearBox.classList.add('manual-flash');
+                } else {
+                    gearBox.classList.remove('manual-flash');
                 }
             } else {
-                speed *= 0.99; // Atrito
+                speed *= 0.99;
+                gearBox.classList.remove('manual-flash');
             }
 
-            if (keys['s'] || keys['S']) speed -= 1.5;
+            if (keys['s'] || keys['S']) speed -= 3;
             if (speed < 0) speed = 0;
 
-            // Câmbio Automático
-            if(!isManual) {
-                if(speed > maxSpeedPerGear[gear] * 0.9 && gear < 6) gear++;
-                if(speed < maxSpeedPerGear[gear-1] * 0.8 && gear > 1) gear--;
+            // Câmbio Automático inteligente
+            if(isAuto) {
+                if(speed > gearMax[gear] * 0.9 && gear < 6) gear++;
+                if(speed < gearMax[gear-1] * 0.8 && gear > 1) gear--;
             }
 
-            // Movimentação da pista e distância
-            distance += (speed / 3.6) / 60; // km/h para m/s
-            pos += speed / 10;
-            track.style.transform = `rotateX(80deg) translateY(${pos - 4800}px)`;
+            // Progresso Real
+            distanceKm += (speed / 3600) / 60;
+            
+            // Movimento da pista (Efeito infinito e 3D)
+            trackPos += speed / 6;
+            if(trackPos > 0) trackPos = -2000; 
+            track.parentElement.style.transform = `rotateX(70deg) translateY(${trackPos}px)`;
 
-            // Vibração do carro em alta velocidade
-            let shake = (speed / 100) * Math.random();
+            // Efeitos Visuais de Velocidade
+            let shake = (speed / 100) * (Math.random() - 0.5);
+            let blur = speed > 300 ? (speed - 300) / 20 : 0;
+            document.documentElement.style.setProperty('--speed-blur', `${blur}px`);
             car.style.transform = `translateX(${shake}px)`;
 
-            // Atualiza UI
+            // UI
             speedEl.innerText = Math.floor(speed);
-            gearEl.innerText = gear;
-            distEl.innerText = Math.floor(distance);
+            gearEl.innerText = isAuto ? 'A' + gear : gear;
+            distEl.innerText = distanceKm.toFixed(1);
 
-            // Condição de vitória
-            if (distance >= 1000) {
-                finished = true;
-                let totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
-                document.getElementById('finish').style.display = "block";
-                document.getElementById('final-time').innerText = `Tempo: ${totalTime}s`;
+            if (distanceKm >= 1000) {
+                document.getElementById('finish-line').style.display = "block";
             }
 
             requestAnimationFrame(update);
