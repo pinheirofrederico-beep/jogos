@@ -2,178 +2,154 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Drag Race 800m - 400km/h</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Drag Race 400km/h</title>
     <style>
-        body {
-            margin: 0;
-            background: #1a1a1a;
-            color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        body { margin: 0; overflow: hidden; background: #222; font-family: 'Arial', sans-serif; color: white; }
+        
+        /* Cenário 3D */
+        #game-container {
+            perspective: 800px;
+            width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: flex-end;
+            overflow: hidden; background: linear-gradient(#44a, #000);
         }
-        #ui {
-            margin: 10px;
-            text-align: center;
+
+        #track {
+            position: absolute; width: 400px; height: 10000px;
+            background: repeating-linear-gradient(#333 0, #333 100px, #444 100px, #444 200px);
+            transform: rotateX(80deg) translateY(-4800px);
+            transform-origin: bottom;
+            border-left: 10px solid white; border-right: 10px solid white;
         }
-        canvas {
-            background: #333;
-            border-bottom: 5px solid #555;
-            border-top: 5px solid #555;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+
+        .line {
+            position: absolute; left: 50%; width: 10px; height: 100%;
+            border-left: 5px dashed yellow; transform: translateX(-50%);
         }
-        .stats {
-            display: flex;
-            gap: 40px;
-            font-size: 1.2rem;
-            margin-top: 10px;
+
+        /* Carro */
+        #car {
+            position: absolute; bottom: 50px; width: 80px; height: 120px;
+            background: #d00; border-radius: 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            z-index: 10; transition: transform 0.1s;
         }
-        .p1 { color: #ff4d4d; }
-        .p2 { color: #4d94ff; }
-        kbd {
-            background: #444;
-            padding: 2px 6px;
-            border-radius: 4px;
-            color: #fff;
+
+        /* UI */
+        #hud {
+            position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.7);
+            padding: 20px; border-radius: 10px; border: 2px solid #555;
         }
+
+        .stat { font-size: 24px; margin-bottom: 5px; }
+        .stat span { color: #0f0; font-weight: bold; }
+        
+        #controls-hint { position: absolute; bottom: 20px; right: 20px; text-align: right; opacity: 0.7; }
+        #finish { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                   font-size: 50px; display: none; text-shadow: 0 0 20px gold; }
     </style>
 </head>
 <body>
 
-    <div id="ui">
-        <h1>Arrancada 800 Metros</h1>
-        <p>Segure a tecla para acelerar! Meta: 216 km/h (60 m/s)</p>
-        <div class="stats">
-            <div class="p1">P1 (W): <span id="speed1">400</span> km/h | <span id="dist1">400</span>m</div>
-            <div class="p2">P2 (Seta Cima): <span id="speed2">0</span> km/h | <span id="dist2">0</span>m</div>
-        </div>
+    <div id="game-container">
+        <div id="track"><div class="line"></div></div>
+        <div id="car"></div>
     </div>
 
-    <canvas id="raceCanvas"></canvas>
+    <div id="hud">
+        <div class="stat">Distância: <span id="dist">0</span>m / 1000m</div>
+        <div class="stat">Velocidade: <span id="speed">0</span> km/h</div>
+        <div class="stat">Marcha: <span id="gear">1</span></div>
+        <div class="stat">Modo: <span id="mode">Manual</span> (M para trocar)</div>
+    </div>
+
+    <div id="finish">CHEGADA! <br> <span id="final-time"></span></div>
+
+    <div id="controls-hint">
+        <b>W:</b> Acelerar | <b>S:</b> Frear <br>
+        <b>Seta Cima:</b> Subir Marcha | <b>Seta Baixo:</b> Reduzir <br>
+        <b>M:</b> Alternar Manual/Auto
+    </div>
 
     <script>
-        const canvas = document.getElementById('raceCanvas');
-        const ctx = canvas.getContext('2d');
+        const track = document.getElementById('track');
+        const car = document.getElementById('car');
+        const speedEl = document.getElementById('speed');
+        const gearEl = document.getElementById('gear');
+        const distEl = document.getElementById('dist');
+        const modeEl = document.getElementById('mode');
 
-        // Configurações de Mundo
-        canvas.width = window.innerWidth * 0.9;
-        canvas.height = 300;
-        
-        const LARGURA_PISTA_METROS = 800;
-        const VEL_MAX_MS = 60; // 60 m/s = 800 km/h
-        const ESCALA = canvas.width / LARGURA_PISTA_METROS; // pixels por metro
+        let speed = 0;
+        let distance = 0;
+        let gear = 1;
+        let pos = -4800;
+        let isManual = true;
+        let keys = {};
+        let startTime = null;
+        let finished = false;
 
-        class Carro {
-            constructor(y, cor, tecla) {
-                this.distancia = 0; // em metros
-                this.velocidade = 0; // em m/s
-                this.aceleracao = 0.4; // m/s²
-                this.frenagem = 0.98; // atrito natural
-                this.y = y;
-                this.cor = cor;
-                this.tecla = tecla;
-                this.vitoria = false;
-                this.tempo = 0;
+        const maxSpeedPerGear = [0, 80, 160, 240, 320, 380, 405];
+        const acceleration = 0.5;
+
+        document.addEventListener('keydown', (e) => { 
+            keys[e.key] = true; 
+            if(e.key === 'm' || e.key === 'M') {
+                isManual = !isManual;
+                modeEl.innerText = isManual ? "Manual" : "Automático";
             }
+            if(isManual && e.key === 'ArrowUp' && gear < 6) gear++;
+            if(isManual && e.key === 'ArrowDown' && gear > 1) gear--;
+        });
+        document.addEventListener('keyup', (e) => keys[e.key] = false);
 
-            atualizar(isPressed, finalizado) {
-                if (this.distancia < LARGURA_PISTA_METROS && !finalizado) {
-                    if (isPressed) {
-                        this.velocidade += this.aceleracao;
-                    } else {
-                        this.velocidade *= this.frenagem;
-                    }
+        function update() {
+            if(finished) return;
 
-                    // Limitador de 216 km/h
-                    if (this.velocidade > VEL_MAX_MS) this.velocidade = VEL_MAX_MS;
-                    
-                    this.distancia += this.velocidade / 60; // Baseado em 60 FPS
-                    this.tempo += 1/60;
-                }
-            }
-
-            desenhar() {
-                const xPos = this.distancia * ESCALA;
-                
-                // Desenhar Carro
-                ctx.fillStyle = this.cor;
-                ctx.fillRect(xPos, this.y, 40, 20);
-                
-                // Faróis
-                ctx.fillStyle = "yellow";
-                ctx.fillRect(xPos + 35, this.y + 2, 5, 5);
-                ctx.fillRect(xPos + 35, this.y + 13, 5, 5);
-            }
-        }
-
-        const p1 = new Carro(80, "#ff4d4d", "KeyW");
-        const p2 = new Carro(200, "#4d94ff", "ArrowUp");
-
-        const keys = {};
-        let jogoAtivo = true;
-        let vencedor = "";
-
-        window.addEventListener('keydown', e => keys[e.code] = true);
-        window.addEventListener('keyup', e => keys[e.code] = false);
-
-        function renderPista() {
-            // Linha de Chegada
-            ctx.strokeStyle = "white";
-            ctx.lineWidth = 5;
-            ctx.setLineDash([10, 10]);
-            ctx.beginPath();
-            ctx.moveTo(canvas.width - 5, 0);
-            ctx.lineTo(canvas.width - 5, canvas.height);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Marcações de metros
-            ctx.fillStyle = "#666";
-            for(let i = 0; i <= 800; i += 100) {
-                ctx.fillText(i + "m", i * ESCALA, canvas.height - 10);
-            }
-        }
-
-        function loop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            renderPista();
-
-            p1.atualizar(keys[p1.tecla], !jogoAtivo);
-            p2.atualizar(keys[p2.tecla], !jogoAtivo);
-
-            p1.desenhar();
-            p2.desenhar();
-
-            // UI Update
-            document.getElementById('speed1').innerText = Math.floor(p1.velocidade * 3.6);
-            document.getElementById('dist1').innerText = Math.floor(p1.distancia);
-            document.getElementById('speed2').innerText = Math.floor(p2.velocidade * 3.6);
-            document.getElementById('dist2').innerText = Math.floor(p2.distancia);
-
-            // Verificação de Vitória
-            if (jogoAtivo) {
-                if (p1.distancia >= LARGURA_PISTA_METROS) {
-                    vencedor = "Jogador 1 (Vermelho)";
-                    jogoAtivo = false;
-                } else if (p2.distancia >= LARGURA_PISTA_METROS) {
-                    vencedor = "Jogador 2 (Azul)";
-                    jogoAtivo = false;
+            // Lógica de aceleração
+            if (keys['w'] || keys['W']) {
+                if(!startTime) startTime = Date.now();
+                if (speed < maxSpeedPerGear[gear]) {
+                    speed += acceleration;
                 }
             } else {
-                ctx.fillStyle = "white";
-                ctx.font = "30px Arial";
-                ctx.textAlign = "center";
-                ctx.fillText(vencedor + " VENCEU!", canvas.width/2, canvas.height/2);
-                ctx.font = "20px Arial";
-                ctx.fillText("F5 para reiniciar", canvas.width/2, canvas.height/2 + 40);
+                speed *= 0.99; // Atrito
             }
 
-            requestAnimationFrame(loop);
+            if (keys['s'] || keys['S']) speed -= 1.5;
+            if (speed < 0) speed = 0;
+
+            // Câmbio Automático
+            if(!isManual) {
+                if(speed > maxSpeedPerGear[gear] * 0.9 && gear < 6) gear++;
+                if(speed < maxSpeedPerGear[gear-1] * 0.8 && gear > 1) gear--;
+            }
+
+            // Movimentação da pista e distância
+            distance += (speed / 3.6) / 60; // km/h para m/s
+            pos += speed / 10;
+            track.style.transform = `rotateX(80deg) translateY(${pos - 4800}px)`;
+
+            // Vibração do carro em alta velocidade
+            let shake = (speed / 100) * Math.random();
+            car.style.transform = `translateX(${shake}px)`;
+
+            // Atualiza UI
+            speedEl.innerText = Math.floor(speed);
+            gearEl.innerText = gear;
+            distEl.innerText = Math.floor(distance);
+
+            // Condição de vitória
+            if (distance >= 1000) {
+                finished = true;
+                let totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+                document.getElementById('finish').style.display = "block";
+                document.getElementById('final-time').innerText = `Tempo: ${totalTime}s`;
+            }
+
+            requestAnimationFrame(update);
         }
 
-        loop();
+        update();
     </script>
 </body>
 </html>
