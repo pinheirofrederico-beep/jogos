@@ -13,9 +13,11 @@
   #hud { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: rgba(0,0,0,0.8); border-bottom: 3px solid #FFD700; position: fixed; top: 0; left: 0; right: 0; z-index: 40; }
   .hud-item { color: #FFD700; font-size: 13px; text-shadow: 0 0 8px #FFD700; }
   .hud-coins { color: #FFD700; }
-  #screens { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); }
-  .screen { display: none; flex-direction: column; align-items: center; gap: 12px; background: rgba(0,0,10,0.98); border: 4px solid #FFD700; padding: 32px; border-radius: 8px; max-width: 500px; width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 0 40px rgba(255,215,0,0.3); }
-  .screen.active { display: flex; z-index: 100; }
+  #screens { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: transparent; pointer-events: none; }
+  #screens::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; z-index: 99; }
+  #screens.has-screen::before { display: block; pointer-events: auto; }
+  .screen { display: none; flex-direction: column; align-items: center; gap: 12px; background: rgba(0,0,10,0.98); border: 4px solid #FFD700; padding: 32px; border-radius: 8px; max-width: 500px; width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 0 40px rgba(255,215,0,0.3); position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+  .screen.active { display: flex; z-index: 100; pointer-events: auto; background: rgba(0,0,10,0.98); }
   .screen h1 { color: #FFD700; font-size: 22px; text-shadow: 0 0 12px #FFD700; text-align: center; }
   .screen h2 { color: #FFD700; font-size: 16px; text-align: center; }
   .btn { background: #1a1a3a; border: 2px solid #FFD700; color: #FFD700; padding: 10px 24px; font-family: 'Courier New', monospace; font-size: 14px; cursor: pointer; transition: all 0.1s; width: 100%; text-align: center; border-radius: 2px; }
@@ -217,6 +219,8 @@ let gameMode = 'story', dailyChallenge = false;
 let particles = [], damageNumbers = [];
 let lastUpdateTime = 0, levelStartTime = 0, noDeathRun = false;
 let screenShaking = 0;
+let frameCount = 0;
+let LD = null;
 
 // ============ INICIALIZAÇÃO DO PLAYER ============
 function initPlayer() {
@@ -397,19 +401,23 @@ function loadCheckpoint() {
   player.vy = 0;
   player.dead = false;
   paused = false;
+  gameRunning = true;
   hideAllScreens();
-  loop();
 }
 
 // ============ LÓGICA DE JOGO ============
 function startGame() {
+  console.log('🎮 Iniciando jogo...');
   hideAllScreens();
   LD = generateLevel(G.level);
+  console.log('Level gerado:', LD);
   initPlayer();
+  console.log('Player iniciado:', player);
   gameRunning = true;
   paused = false;
   keys = {};
   updateAbilitiesBar();
+  console.log('🎮 Jogo iniciado!');
 }
 
 function startGameMode(mode) {
@@ -453,7 +461,7 @@ function goMenu() {
   showScreen('menu'); 
 }
 
-function resumeGame() { paused = false; hideAllScreens(); loop(); }
+function resumeGame() { paused = false; hideAllScreens(); }
 
 function openShop() { renderShop(); showScreen('shop'); }
 
@@ -464,12 +472,21 @@ function closeShop() {
 }
 
 function showScreen(name) {
+  const screensDiv = document.getElementById('screens');
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('screen-' + name).classList.add('active');
+  const screen = document.getElementById('screen-' + name);
+  if (screen) {
+    screen.classList.add('active');
+    screensDiv.classList.add('has-screen');
+    screensDiv.style.pointerEvents = 'auto';
+  }
 }
 
 function hideAllScreens() { 
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); 
+  const screensDiv = document.getElementById('screens');
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  screensDiv.classList.remove('has-screen');
+  screensDiv.style.pointerEvents = 'none';
 }
 
 // ============ LOJA E SKILLS ============
@@ -931,11 +948,24 @@ function updateCooldownUI() {
 
 // ============ RENDERIZAÇÃO ============
 function draw() {
+  if (!canvas || !ctx) {
+    console.error('Canvas ou contexto não encontrado!');
+    return;
+  }
+  
   // Background padrão
   ctx.fillStyle = '#0a0a1a';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
-  if (!LD) return;
+  // Se não houver level, apenas mostra background
+  if (!LD) {
+    return;
+  }
+  
+  // Se jogo não está rodando, apenas mostra background
+  if (!gameRunning) {
+    return;
+  }
   const th = THEMES[LD.theme];
   ctx.fillStyle = th.sky;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1071,6 +1101,7 @@ function draw() {
 }
 
 function drawPlayer(px, py, pw, ph, sliding) {
+  if (!player) return;
   const h = sliding ? Math.floor(ph * 0.55) : ph;
   const yo = sliding ? ph - h : 0;
   ctx.fillStyle = '#4488FF'; ctx.fillRect(px + 1, py + yo + 6, pw - 2, h - 6);
@@ -1086,10 +1117,15 @@ function drawPlayer(px, py, pw, ph, sliding) {
 
 // ============ LOOP ============
 function resize() {
+  if (!canvas) return;
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+  console.log('Canvas resized:', canvas.width, 'x', canvas.height);
 }
+
+// Chamar resize múltiplas vezes para garantir
 resize();
+setTimeout(resize, 100);
 window.addEventListener('resize', resize);
 
 // Forçar fullscreen no inicio
@@ -1099,13 +1135,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let lastTime = 0;
 function loop(ts = 0) {
+  frameCount++;
+  if (frameCount % 60 === 0) console.log('Frame:', frameCount, 'gameRunning:', gameRunning, 'paused:', paused, 'LD:', LD);
+  
   const dt = ts - lastTime; lastTime = ts;
-  if (gameRunning && !paused) {
-    if (dt < 200) { update(); draw(); }
-  } else {
-    // Draw background mesmo quando paused
+  
+  // Sempre desenha
+  if (dt < 200) {
+    if (gameRunning && !paused) { 
+      update(); 
+    }
     draw();
   }
+  
   animId = requestAnimationFrame(loop);
 }
 
