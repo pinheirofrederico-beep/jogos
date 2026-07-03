@@ -2,7 +2,8 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Pixel Runner — Parkour 2D</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Pixel Runner Pro — Parkour 2D</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #0a0a1a; overflow: hidden; font-family: 'Courier New', monospace; }
@@ -13,11 +14,11 @@
   .hud-coins { color: #FFD700; }
   #screens { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
   .screen { display: none; flex-direction: column; align-items: center; gap: 12px; background: rgba(0,0,10,0.95); border: 3px solid #FFD700; padding: 24px; border-radius: 4px; max-width: 420px; width: 90%; max-height: 90vh; overflow-y: auto; }
-  .screen.active { display: flex; }
+  .screen.active { display: flex; z-index: 100; }
   .screen h1 { color: #FFD700; font-size: 22px; text-shadow: 0 0 12px #FFD700; text-align: center; }
   .screen h2 { color: #FFD700; font-size: 16px; text-align: center; }
   .btn { background: #1a1a3a; border: 2px solid #FFD700; color: #FFD700; padding: 10px 24px; font-family: 'Courier New', monospace; font-size: 14px; cursor: pointer; transition: all 0.1s; width: 100%; text-align: center; border-radius: 2px; }
-  .btn:hover { background: #FFD700; color: #0a0a1a; }
+  .btn:hover { background: #FFD700; color: #0a0a1a; transform: scale(1.02); }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .btn-small { padding: 6px 14px; font-size: 12px; width: auto; }
   .skill-item { width: 100%; background: #0d0d2a; border: 1px solid #333; padding: 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; border-radius: 2px; }
@@ -26,99 +27,197 @@
   .skill-desc { color: #aaa; font-size: 10px; margin-top: 2px; }
   .skill-cost { color: #FFD700; font-size: 11px; }
   .owned-badge { color: #00FF88; font-size: 11px; }
-  .level-info { color: #aaa; font-size: 12px; text-align: center; }
+  .achievement-item { width: 100%; background: #0d0d2a; border: 1px solid #333; padding: 8px; border-radius: 2px; display: flex; gap: 8px; align-items: center; }
+  .achievement-icon { font-size: 20px; }
+  .achievement-text { flex: 1; }
+  .achievement-name { color: #FFD700; font-size: 11px; font-weight: bold; }
+  .achievement-desc { color: #888; font-size: 9px; }
+  .achievement-locked { opacity: 0.5; }
+  .level-info { color: #aaa; font-size: 12px; text-align: center; line-height: 1.6; }
   .controls-info { color: #888; font-size: 10px; text-align: center; line-height: 1.6; }
   .death-msg { color: #FF4444; font-size: 13px; text-align: center; }
   .win-msg { color: #00FF88; font-size: 13px; text-align: center; }
-  .section-title { color: #888; font-size: 11px; text-align: left; width: 100%; border-bottom: 1px solid #333; padding-bottom: 4px; }
+  .section-title { color: #888; font-size: 11px; text-align: left; width: 100%; border-bottom: 1px solid #333; padding-bottom: 4px; margin-top: 8px; }
   #abilities-bar { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; pointer-events: none; }
   .ability-slot { width: 36px; height: 36px; background: rgba(0,0,0,0.8); border: 2px solid #444; display: flex; align-items: center; justify-content: center; font-size: 16px; border-radius: 3px; position: relative; }
   .ability-slot.ready { border-color: #FFD700; }
   .ability-slot.active { border-color: #00FFFF; background: rgba(0,255,255,0.2); }
   .ability-slot.cooldown { border-color: #FF4444; }
   .cd-bar { position: absolute; bottom: 0; left: 0; height: 3px; background: #FF4444; transition: width 0.1s; border-radius: 0 0 2px 2px; }
+  #checkpoint-indicator { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); background: rgba(0,255,136,0.9); color: #000; padding: 8px 16px; border-radius: 4px; font-size: 12px; font-weight: bold; display: none; pointer-events: none; z-index: 50; }
+  .damage-indicator { position: absolute; color: #FF4444; font-weight: bold; font-size: 20px; pointer-events: none; }
+  .particle { position: absolute; pointer-events: none; }
+  #mobile-controls { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 8px; z-index: 50; gap: 4px; }
+  .mobile-btn { padding: 12px; background: rgba(255,215,0,0.15); border: 2px solid #FFD70088; color: #FFD700; border-radius: 4px; cursor: pointer; font-size: 20px; font-weight: bold; flex: 1; max-width: 60px; }
+  .mobile-btn:active { background: rgba(255,215,0,0.3); }
+  @media (orientation: landscape) { body { width: 100vw; height: 100vh; } }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="ui">
   <div id="hud">
-    <span class="hud-item" id="hud-level">Nível 1</span>
+    <span class="hud-item" id="hud-level">Fase 1</span>
     <span class="hud-item hud-coins" id="hud-coins">🪙 0</span>
     <span class="hud-item" id="hud-lives">❤️❤️❤️</span>
   </div>
+  <div id="checkpoint-indicator">✓ CHECKPOINT SALVO</div>
   <div id="abilities-bar"></div>
 </div>
+
 <div id="screens">
+  <!-- MENU PRINCIPAL -->
   <div class="screen active" id="screen-menu">
-    <h1>⚡ PIXEL RUNNER ⚡</h1>
-    <p class="level-info">Parkour 2D — 1040 Níveis</p>
+    <h1>⚡ PIXEL RUNNER PRO ⚡</h1>
+    <p class="level-info">Parkour 2D — 1040+ Níveis<br>v2.0 Enhanced</p>
     <button class="btn" onclick="startGame()">▶ JOGAR</button>
-    <button class="btn" onclick="openShop()">🏪 LOJA DE HABILIDADES</button>
-    <div class="controls-info">
-      WASD / Setas: Mover<br>
-      Espaço / W / ↑: Pular<br>
-      Q: Dash | E: Slide<br>
-      R: Wall Run | F: Backflip<br>
-      Shift+Espaço: Super Pulo | I: Invisível
-    </div>
+    <button class="btn" onclick="showScreen('tutorial')">📖 TUTORIAL</button>
+    <button class="btn" onclick="showScreen('modes')">🎮 MODOS</button>
+    <button class="btn" onclick="showScreen('achievements')">🏆 CONQUISTAS</button>
+    <button class="btn" onclick="showScreen('shop')">🏪 LOJA</button>
+    <button class="btn" onclick="showScreen('ranking')">📊 RANKING</button>
+    <div class="level-info" id="prestige-info"></div>
   </div>
 
+  <!-- TUTORIAL -->
+  <div class="screen" id="screen-tutorial">
+    <h2>📖 COMO JOGAR</h2>
+    <div class="controls-info" style="text-align:left; width:100%; color:#aaa">
+      <strong style="color:#FFD700">MOVIMENTO:</strong><br>
+      WASD ou Setas = Mover<br>
+      <br>
+      <strong style="color:#FFD700">HABILIDADES BÁSICAS:</strong><br>
+      Espaço/W/↑ = Pular<br>
+      E = Slide (passar por buracos)<br>
+      Q = Dash (movimento rápido)<br>
+      <br>
+      <strong style="color:#FFD700">HABILIDADES AVANÇADAS:</strong><br>
+      R = Wall Run (correr em paredes)<br>
+      F = Backflip (invencível por 1s)<br>
+      Shift+Espaço = Super Pulo<br>
+      I = Invisibilidade<br>
+      <br>
+      <strong style="color:#FFD700">DICAS:</strong><br>
+      • Colete moedas para comprar skills<br>
+      • Checkpoints salvam progresso em fases longas<br>
+      • Cada skill tem cooldown — use com sabedoria<br>
+      • Atinja o EXIT verde para completar
+    </div>
+    <button class="btn" onclick="goMenu()">← VOLTAR</button>
+  </div>
+
+  <!-- MODOS DE JOGO -->
+  <div class="screen" id="screen-modes">
+    <h2>🎮 MODOS DE JOGO</h2>
+    <button class="btn" onclick="startGameMode('story')">📈 CAMPANHA (Progressivo)</button>
+    <button class="btn" onclick="startGameMode('challenge')">⚡ DESAFIO (Fases Aleatórias)</button>
+    <button class="btn" onclick="startGameMode('sandbox')">🎨 SANDBOX (Teste Skills)</button>
+    <button class="btn" onclick="startDailyChallenge()">🌟 DESAFIO DIÁRIO</button>
+    <button class="btn" onclick="goMenu()">← VOLTAR</button>
+  </div>
+
+  <!-- LOJA -->
   <div class="screen" id="screen-shop">
     <h2>🏪 LOJA DE HABILIDADES</h2>
     <div class="hud-item" id="shop-coins" style="font-size:15px">🪙 0</div>
-    <div id="shop-list" style="width:100%; display:flex; flex-direction:column; gap:8px;"></div>
+    <div id="shop-list" style="width:100%; display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto;"></div>
     <button class="btn" onclick="closeShop()">← VOLTAR</button>
   </div>
 
+  <!-- ACHIEVEMENTS -->
+  <div class="screen" id="screen-achievements">
+    <h2>🏆 CONQUISTAS</h2>
+    <div id="achievements-list" style="width:100%; display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto;"></div>
+    <button class="btn" onclick="goMenu()">← VOLTAR</button>
+  </div>
+
+  <!-- RANKING -->
+  <div class="screen" id="screen-ranking">
+    <h2>📊 RANKING LOCAL</h2>
+    <div id="ranking-list" style="width:100%; display:flex; flex-direction:column; gap:4px; color:#aaa; font-size:11px;"></div>
+    <button class="btn" onclick="goMenu()">← VOLTAR</button>
+  </div>
+
+  <!-- PAUSA -->
   <div class="screen" id="screen-pause">
     <h2>⏸ PAUSADO</h2>
     <button class="btn" onclick="resumeGame()">▶ CONTINUAR</button>
-    <button class="btn" onclick="openShop()">🏪 LOJA</button>
+    <button class="btn" onclick="showScreen('shop')">🏪 LOJA</button>
+    <button class="btn" onclick="showScreen('pause-achievements')">🏆 CONQUISTAS</button>
     <button class="btn" onclick="goMenu()">🏠 MENU</button>
   </div>
 
+  <!-- MORTE -->
   <div class="screen" id="screen-death">
     <h2>💀 VOCÊ MORREU</h2>
     <p class="death-msg" id="death-msg"></p>
     <button class="btn" onclick="restartLevel()">🔄 TENTAR NOVAMENTE</button>
-    <button class="btn" onclick="openShop()">🏪 LOJA</button>
+    <button class="btn" onclick="loadCheckpoint()" id="checkpoint-btn" style="display:none">📍 VOLTAR AO CHECKPOINT</button>
+    <button class="btn" onclick="showScreen('shop')">🏪 LOJA</button>
     <button class="btn" onclick="goMenu()">🏠 MENU</button>
   </div>
 
+  <!-- VITÓRIA -->
   <div class="screen" id="screen-win">
     <h2 id="win-title">🎉 FASE COMPLETA!</h2>
     <p class="win-msg" id="win-msg"></p>
+    <div id="achievements-earned" style="width:100%; color:#00FF88; font-size:11px;"></div>
     <button class="btn" onclick="nextLevel()">▶ PRÓXIMA FASE</button>
     <button class="btn" onclick="goMenu()">🏠 MENU</button>
   </div>
 </div>
 
+<div id="mobile-controls"></div>
+
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 
+// ============ SISTEMA DE DADOS ============
 const G = {
   coins: parseInt(localStorage.getItem('pk_coins') || '0'),
   skills: JSON.parse(localStorage.getItem('pk_skills') || '{}'),
   activeSkills: JSON.parse(localStorage.getItem('pk_active') || '{}'),
   level: parseInt(localStorage.getItem('pk_level') || '1'),
   highScore: parseInt(localStorage.getItem('pk_high') || '1'),
+  achievements: JSON.parse(localStorage.getItem('pk_achievements') || '{}'),
+  scoreHistory: JSON.parse(localStorage.getItem('pk_history') || '[]'),
+  prestige: parseInt(localStorage.getItem('pk_prestige') || '0'),
+  lastDaily: localStorage.getItem('pk_daily') || '',
+  dailyCompleted: localStorage.getItem('pk_daily_done') === 'true',
+  checkpoint: null,
 };
 
 const SKILLS = [
-  { id: 'backflip', name: 'Mortal de Costas', icon: '🤸', cost: 150, key: 'F', desc: 'Pressione F no ar — invencível durante o mortal!', color: '#FF6B6B' },
-  { id: 'doublejump', name: 'Double Jump', icon: '✨', cost: 100, key: 'Espaço (2x)', desc: 'Pule duas vezes no ar!', color: '#FFD700' },
-  { id: 'wallrun', name: 'Wall Run', icon: '🧱', cost: 200, key: 'R + parede', desc: 'Corra pelas paredes verticalmente!', color: '#4ECDC4' },
-  { id: 'dash', name: 'Dash', icon: '💨', cost: 80, key: 'Q', desc: 'Dê uma investida rápida horizontal!', color: '#A78BFA' },
+  { id: 'backflip', name: 'Mortal de Costas', icon: '🤸', cost: 150, key: 'F', desc: 'Invencível 1s — escape de espinhos!', color: '#FF6B6B' },
+  { id: 'doublejump', name: 'Double Jump', icon: '✨', cost: 100, key: 'Espaço (2x)', desc: 'Pule 2x no ar!', color: '#FFD700' },
+  { id: 'wallrun', name: 'Wall Run', icon: '🧱', cost: 200, key: 'R + parede', desc: 'Corra por paredes!', color: '#4ECDC4' },
+  { id: 'dash', name: 'Dash', icon: '💨', cost: 80, key: 'Q', desc: 'Investida horizontal!', color: '#A78BFA' },
   { id: 'superjump', name: 'Super Pulo', icon: '🚀', cost: 120, key: 'Shift+Espaço', desc: 'Pulo 3x mais alto!', color: '#FB923C' },
-  { id: 'slide', name: 'Slide', icon: '🛷', cost: 60, key: 'E', desc: 'Deslize pelo chão passando por buracos baixos!', color: '#34D399' },
-  { id: 'invisible', name: 'Invisibilidade', icon: '👻', cost: 300, key: 'I', desc: 'Fique invisível por 3s — atravessa armadilhas!', color: '#818CF8' },
+  { id: 'slide', name: 'Slide', icon: '🛷', cost: 60, key: 'E', desc: 'Deslize por buracos!', color: '#34D399' },
+  { id: 'invisible', name: 'Invisibilidade', icon: '👻', cost: 300, key: 'I', desc: 'Atravesse armadilhas por 3s!', color: '#818CF8' },
+];
+
+const ACHIEVEMENTS = [
+  { id: 'first_step', name: '👣 Primeiro Passo', desc: 'Complete a fase 1', icon: '👣', check: () => G.highScore >= 1 },
+  { id: 'skill_collector', name: '🛍️ Colecionador', desc: 'Compre 3 skills', icon: '🛍️', check: () => Object.keys(G.skills).length >= 3 },
+  { id: 'speedrunner', name: '⚡ Speedrunner', desc: 'Faça uma fase em <30s', icon: '⚡', check: () => G.achievements.speedrunner },
+  { id: 'coin_master', name: '💰 Mestre das Moedas', desc: 'Colete 100 moedas', icon: '💰', check: () => G.coins >= 100 },
+  { id: 'wall_runner', name: '🧗 Escalador', desc: 'Use Wall Run 10x', icon: '🧗', check: () => (G.achievements.wallRunUses || 0) >= 10 },
+  { id: 'hardcore', name: '💪 Hardcore', desc: 'Complete fase sem morrer', icon: '💪', check: () => G.achievements.hardcore },
+  { id: 'prestige', name: '✨ Prestigioso', desc: 'Alcance prestige 1', icon: '✨', check: () => G.prestige >= 1 },
+  { id: 'explorer', name: '🗺️ Explorador', desc: 'Chegue na fase 50', icon: '🗺️', check: () => G.highScore >= 50 },
 ];
 
 const TILE = 20;
 let player, camera, level_data, gameState, keys, cooldowns;
+let gameRunning = false, paused = false, animId = null;
+let gameMode = 'story', dailyChallenge = false;
+let particles = [], damageNumbers = [];
+let lastUpdateTime = 0, levelStartTime = 0, noDeathRun = false;
+let screenShaking = 0;
 
+// ============ INICIALIZAÇÃO DO PLAYER ============
 function initPlayer() {
   player = {
     x: 2 * TILE, y: 3 * TILE,
@@ -140,11 +239,15 @@ function initPlayer() {
     invisTimer: 0,
     invincTimer: 0,
     wallRunTimer: 0,
+    wallRunCount: 0,
   };
   cooldowns = { dash: 0, backflip: 0, superjump: 0, invisible: 0 };
   camera = { x: 0, y: 0 };
+  noDeathRun = true;
+  levelStartTime = Date.now();
 }
 
+// ============ GERAÇÃO DE NÍVEIS MELHORADA ============
 function generateLevel(lvl) {
   const diff = Math.min((lvl - 1) / 40, 1);
   let rng = lvl * 1337;
@@ -158,6 +261,7 @@ function generateLevel(lvl) {
 
   for (let x = 0; x < W; x++) tiles[H-1][x] = 1;
 
+  // PLATAFORMAS COM PADRÕES MELHORADOS
   const numPlat = 8 + Math.floor(diff * 20);
   const platforms = [];
   for (let i = 0; i < numPlat; i++) {
@@ -168,6 +272,7 @@ function generateLevel(lvl) {
     platforms.push({ x: px, y: py, w: pw });
   }
 
+  // BURACOS
   const numGaps = Math.floor(diff * 6) + (lvl <= 40 ? 0 : 2);
   for (let g = 0; g < numGaps; g++) {
     const gx = 8 + rand(W - 20);
@@ -175,30 +280,63 @@ function generateLevel(lvl) {
     for (let x = gx; x < gx + gw && x < W - 2; x++) tiles[H-1][x] = 0;
   }
 
+  // ESPINHOS
   const numSpikes = Math.floor(diff * 12);
   const spikes = [];
   for (let s = 0; s < numSpikes; s++) {
     const sx = 6 + rand(W - 10);
     const sy = H - 2;
-    if (tiles[H-1][sx] === 1) spikes.push({ x: sx, y: sy });
+    if (tiles[H-1][sx] === 1) spikes.push({ x: sx, y: sy, type: 'spike' });
   }
 
+  // ESPINHOS GIRATÓRIOS (novo)
+  if (lvl > 50) {
+    for (let s = 0; s < Math.floor(diff * 4); s++) {
+      const sx = 15 + rand(W - 25);
+      const sy = 5 + rand(H - 8);
+      spikes.push({ x: sx, y: sy, type: 'rotating', angle: 0, speed: 0.05 + randF(0, 0.03) });
+    }
+  }
+
+  // ARMADILHAS DE TEMPO (novo)
+  const timedTraps = [];
+  if (lvl > 100) {
+    for (let t = 0; t < Math.floor(diff * 3); t++) {
+      const tx = 15 + rand(W - 25);
+      const ty = 5 + rand(H - 8);
+      timedTraps.push({ x: tx, y: ty, visible: true, timer: 0, toggleRate: 60 + rand(60) });
+    }
+  }
+
+  // INIMIGOS (novo)
+  const enemies = [];
+  if (lvl > 150) {
+    for (let e = 0; e < Math.floor(diff * 2); e++) {
+      const ex = 20 + rand(W - 30);
+      const ey = 5 + rand(H - 8);
+      enemies.push({ x: ex, y: ey, vx: 1, range: 4 + rand(3), leftEdge: Math.max(15, ex - 5), rightEdge: Math.min(W - 15, ex + 5) });
+    }
+  }
+
+  // PLATAFORMAS MÓVEIS
   const numMoving = Math.floor(diff * 5);
   const movingPlats = [];
   for (let m = 0; m < numMoving; m++) {
     const mx = 10 + rand(W - 20);
     const my = 5 + rand(8);
     const mrange = 3 + rand(4);
-    movingPlats.push({ x: mx, y: my, ox: mx, range: mrange, speed: 0.3 + randF(0, 0.5), t: rand(100) / 100 });
+    const pattern = rand(3); // 0=sin, 1=square, 2=linear
+    movingPlats.push({ x: mx, y: my, ox: mx, range: mrange, speed: 0.3 + randF(0, 0.5), t: rand(100) / 100, pattern });
   }
 
+  // MOEDAS
   const coins = [];
   const numCoins = 5 + Math.floor(diff * 15);
   for (let c = 0; c < numCoins; c++) {
     const cx = 3 + rand(W - 4);
     const cy = 4 + rand(H - 6);
-    if (tiles[cy][cx] === 0 && tiles[cy+1] && tiles[cy+1][cx] === 0) {
-      coins.push({ x: cx, y: cy, collected: false });
+    if (tiles[cy] && tiles[cy][cx] === 0 && tiles[cy+1] && tiles[cy+1][cx] === 0) {
+      coins.push({ x: cx, y: cy, collected: false, value: lvl > 40 ? (rand(100) < 20 ? 5 : 1) : 1 });
     }
   }
   if (lvl > 40) coins.push({ x: W - 5, y: 3, collected: false, value: 5 });
@@ -206,7 +344,7 @@ function generateLevel(lvl) {
   for (let y = 0; y < H; y++) { tiles[y][0] = 1; tiles[y][W-1] = 1; }
 
   const theme = lvl <= 40 ? 0 : lvl <= 200 ? 1 : lvl <= 500 ? 2 : 3;
-  return { tiles, W, H, spikes, movingPlats, coins, exitX: W - 4, exitY: H - 3, theme, lvl };
+  return { tiles, W, H, spikes, movingPlats, coins, timedTraps, enemies, exitX: W - 4, exitY: H - 3, theme, lvl };
 }
 
 const THEMES = [
@@ -216,8 +354,53 @@ const THEMES = [
   { sky: '#0a0a0a', ground: '#2a2a2a', plat: '#1a1a4a', platTop: '#3a3a6a' },
 ];
 
-let LD = null, gameRunning = false, paused = false, animId = null;
+// ============ SISTEMA DE PARTICULAS ============
+function addParticle(x, y, vx, vy, color, life = 60) {
+  particles.push({ x, y, vx, vy, color, life, maxLife: life });
+}
 
+function addDamageNumber(x, y, text, color = '#FF4444') {
+  damageNumbers.push({ x, y, text, color, life: 60, maxLife: 60 });
+}
+
+function updateParticles() {
+  particles = particles.filter(p => {
+    p.life--;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.3; // gravidade
+    return p.life > 0;
+  });
+}
+
+// ============ CHECKPOINTS ============
+function saveCheckpoint() {
+  if (!player) return;
+  G.checkpoint = {
+    x: player.x,
+    y: player.y,
+    coins: player.coins,
+    lives: player.lives,
+  };
+  document.getElementById('checkpoint-indicator').style.display = 'block';
+  setTimeout(() => document.getElementById('checkpoint-indicator').style.display = 'none', 1500);
+}
+
+function loadCheckpoint() {
+  if (!G.checkpoint) return;
+  player.x = G.checkpoint.x;
+  player.y = G.checkpoint.y;
+  player.coins = G.checkpoint.coins;
+  player.lives = G.checkpoint.lives;
+  player.vx = 0;
+  player.vy = 0;
+  player.dead = false;
+  paused = false;
+  hideAllScreens();
+  loop();
+}
+
+// ============ LÓGICA DE JOGO ============
 function startGame() {
   hideAllScreens();
   LD = generateLevel(G.level);
@@ -230,18 +413,51 @@ function startGame() {
   loop();
 }
 
+function startGameMode(mode) {
+  gameMode = mode;
+  if (mode === 'challenge') {
+    G.level = 1 + Math.floor(Math.random() * 50);
+  } else if (mode === 'sandbox') {
+    G.level = 1;
+  }
+  startGame();
+}
+
+function startDailyChallenge() {
+  const today = new Date().toDateString();
+  if (G.lastDaily === today) {
+    alert('Você já completou o desafio de hoje! Volte amanhã.');
+    return;
+  }
+  dailyChallenge = true;
+  gameMode = 'daily';
+  // Seed do dia
+  G.level = 1000 + new Date().getDate();
+  startGame();
+}
+
 function restartLevel() { startGame(); }
+
 function nextLevel() {
   G.level++;
   if (G.level > G.highScore) G.highScore = G.level;
+  if (gameMode === 'challenge') G.level = 1 + Math.floor(Math.random() * 100);
   localStorage.setItem('pk_level', G.level);
   localStorage.setItem('pk_high', G.highScore);
+  updateAchievements();
   startGame();
 }
-function goMenu() { gameRunning = false; if (animId) cancelAnimationFrame(animId); showScreen('menu'); }
+
+function goMenu() { 
+  gameRunning = false; 
+  if (animId) cancelAnimationFrame(animId); 
+  showScreen('menu'); 
+}
+
 function resumeGame() { paused = false; hideAllScreens(); loop(); }
 
 function openShop() { renderShop(); showScreen('shop'); }
+
 function closeShop() {
   if (gameRunning && !paused) hideAllScreens();
   else if (gameRunning) showScreen('pause');
@@ -252,8 +468,12 @@ function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
 }
-function hideAllScreens() { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); }
 
+function hideAllScreens() { 
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); 
+}
+
+// ============ LOJA E SKILLS ============
 function renderShop() {
   document.getElementById('shop-coins').textContent = '🪙 ' + G.coins;
   const list = document.getElementById('shop-list');
@@ -291,6 +511,7 @@ function buySkill(id) {
   G.activeSkills[id] = true;
   saveData();
   renderShop();
+  updateHUD();
 }
 
 function toggleSkill(id) {
@@ -298,6 +519,7 @@ function toggleSkill(id) {
   G.activeSkills[id] = !G.activeSkills[id];
   saveData();
   renderShop();
+  updateAbilitiesBar();
 }
 
 function saveData() {
@@ -306,11 +528,70 @@ function saveData() {
   localStorage.setItem('pk_active', JSON.stringify(G.activeSkills));
 }
 
+// ============ ACHIEVEMENTS ============
+function updateAchievements() {
+  ACHIEVEMENTS.forEach(ach => {
+    if (!G.achievements[ach.id] && ach.check()) {
+      G.achievements[ach.id] = true;
+      localStorage.setItem('pk_achievements', JSON.stringify(G.achievements));
+    }
+  });
+}
+
+function renderAchievements() {
+  const list = document.getElementById('achievements-list');
+  list.innerHTML = '';
+  let count = 0;
+  ACHIEVEMENTS.forEach(ach => {
+    const earned = G.achievements[ach.id];
+    if (earned) count++;
+    const div = document.createElement('div');
+    div.className = 'achievement-item' + (earned ? '' : ' achievement-locked');
+    div.innerHTML = `
+      <div class="achievement-icon">${ach.icon}</div>
+      <div class="achievement-text">
+        <div class="achievement-name">${ach.name}</div>
+        <div class="achievement-desc">${ach.desc}</div>
+      </div>
+      <div style="color:${earned?'#00FF88':'#666'}; font-size:11px">${earned?'✓':'🔒'}</div>
+    `;
+    list.appendChild(div);
+  });
+  if (document.getElementById('pause-achievements')) {
+    document.getElementById('pause-achievements').innerHTML = `
+      <div class="screen">
+        <h2>🏆 CONQUISTAS (${count}/${ACHIEVEMENTS.length})</h2>
+        ${list.innerHTML}
+        <button class="btn" onclick="resumeGame()">▶ CONTINUAR</button>
+      </div>
+    `;
+  }
+}
+
+function renderRanking() {
+  const list = document.getElementById('ranking-list');
+  const scores = G.scoreHistory.sort((a,b) => b.level - a.level).slice(0, 10);
+  if (scores.length === 0) {
+    list.innerHTML = '<p style="text-align:center; color:#888">Nenhuma pontuação ainda!</p>';
+    return;
+  }
+  list.innerHTML = '';
+  scores.forEach((score, idx) => {
+    const div = document.createElement('div');
+    div.innerHTML = `#${idx+1} — Fase ${score.level} | 🪙 ${score.coins} | ${new Date(score.date).toLocaleDateString()}`;
+    list.appendChild(div);
+  });
+}
+
+// ============ HUD ============
 function updateHUD() {
   document.getElementById('hud-level').textContent = 'Fase ' + G.level + (G.level > 40 ? ' (+)' : '');
   document.getElementById('hud-coins').textContent = '🪙 ' + G.coins;
   const hearts = !player ? '❤️❤️❤️' : player.lives >= 3 ? '❤️❤️❤️' : player.lives === 2 ? '❤️❤️🖤' : player.lives === 1 ? '❤️🖤🖤' : '💀';
   document.getElementById('hud-lives').textContent = hearts;
+  
+  const prestige = G.prestige > 0 ? `<br>⭐ Prestige: ${G.prestige}` : '';
+  document.getElementById('prestige-info').innerHTML = `Maior Fase: ${G.highScore}${prestige}`;
 }
 
 function updateAbilitiesBar() {
@@ -325,6 +606,7 @@ function updateAbilitiesBar() {
   });
 }
 
+// ============ INPUT ============
 window.addEventListener('keydown', e => {
   if (!keys) keys = {};
   keys[e.code] = true;
@@ -342,11 +624,16 @@ function handleAbilityKeys(code) {
   if (code === 'KeyQ' && G.skills.dash && G.activeSkills.dash && cooldowns.dash <= 0) {
     player.vx = player.lastDir * 12;
     cooldowns.dash = 60;
+    playSound('dash');
+    for (let i = 0; i < 5; i++) {
+      addParticle(player.x + player.w/2, player.y + player.h/2, Math.random()*4-2, Math.random()*4-2, '#A78BFA', 40);
+    }
   }
   if (code === 'KeyE' && G.skills.slide && G.activeSkills.slide && player.onGround) {
     player.sliding = true;
     player.slideTimer = 40;
     player.vx = player.lastDir * 6;
+    playSound('slide');
   }
   if (code === 'KeyF' && G.skills.backflip && G.activeSkills.backflip && !player.onGround && cooldowns.backflip <= 0) {
     player.backflipAngle = Math.PI * 2;
@@ -355,6 +642,7 @@ function handleAbilityKeys(code) {
     player.vy = -8;
     player.vx = -player.lastDir * 6;
     cooldowns.backflip = 90;
+    playSound('backflip');
   }
   if (code === 'KeyI' && G.skills.invisible && G.activeSkills.invisible && cooldowns.invisible <= 0) {
     player.invisible = true;
@@ -362,6 +650,12 @@ function handleAbilityKeys(code) {
     player.invisTimer = 180;
     player.invincTimer = 180;
     cooldowns.invisible = 300;
+    playSound('invisible');
+  }
+  if (code === 'KeyR' && G.skills.wallrun && G.activeSkills.wallrun && player.onWall && player.wallRunTimer <= 0) {
+    player.wallRunTimer = 1;
+    if (!G.achievements.wallRunUses) G.achievements.wallRunUses = 0;
+    G.achievements.wallRunUses++;
   }
   if (code === 'Space' || code === 'KeyW' || code === 'ArrowUp') {
     const maxJ = G.skills.doublejump && G.activeSkills.doublejump ? 2 : 1;
@@ -370,15 +664,19 @@ function handleAbilityKeys(code) {
       player.vy = h;
       player.jumps++;
       player.onGround = false;
+      playSound('jump');
+      addParticle(player.x + player.w/2, player.y + player.h, Math.random()*2-1, 2, '#FFD700', 30);
     }
     if (!player.onGround && player.onWall !== 0 && G.skills.wallrun && G.activeSkills.wallrun) {
       player.vy = -11;
       player.vx = -player.onWall * 8;
       player.wallRunTimer = 20;
+      playSound('wallrun');
     }
   }
 }
 
+// ============ FÍSICA & ATUALIZAÇÃO ============
 const GRAVITY = 0.55, FRICTION = 0.82, SPEED = 4.5;
 
 function update() {
@@ -390,6 +688,7 @@ function update() {
   if (player.wallRunTimer > 0) player.wallRunTimer--;
   for (const k in cooldowns) if (cooldowns[k] > 0) cooldowns[k]--;
   updateCooldownUI();
+  updateParticles();
 
   const mx = (keys['ArrowLeft'] || keys['KeyA']) ? -1 : (keys['ArrowRight'] || keys['KeyD']) ? 1 : 0;
   if (!player.sliding) {
@@ -413,9 +712,32 @@ function update() {
     }
   }
 
+  // MOVIMENTAÇÃO DE PLATAFORMAS
   LD.movingPlats.forEach(mp => {
     mp.t += mp.speed / 60;
-    mp.x = mp.ox + Math.sin(mp.t * Math.PI) * mp.range;
+    if (mp.pattern === 0) {
+      mp.x = mp.ox + Math.sin(mp.t * Math.PI) * mp.range;
+    } else if (mp.pattern === 1) {
+      const ph = Math.floor((mp.t % 2) * 2);
+      mp.x = mp.ox + (ph === 0 ? mp.range : -mp.range);
+    } else {
+      mp.x = mp.ox + ((mp.t % 1) - 0.5) * mp.range * 2;
+    }
+  });
+
+  // INIMIGOS
+  LD.enemies.forEach(enemy => {
+    enemy.x += enemy.vx * 0.8;
+    if (enemy.x <= enemy.leftEdge || enemy.x >= enemy.rightEdge) enemy.vx *= -1;
+  });
+
+  // ARMADILHAS DE TEMPO
+  LD.timedTraps.forEach(trap => {
+    trap.timer++;
+    if (trap.timer >= trap.toggleRate) {
+      trap.visible = !trap.visible;
+      trap.timer = 0;
+    }
   });
 
   player.x += player.vx;
@@ -425,6 +747,7 @@ function update() {
   collideWithMovingPlats();
   if (player.onGround) player.jumps = 0;
 
+  // COLETA DE MOEDAS
   LD.coins.forEach(coin => {
     if (coin.collected) return;
     const cx = coin.x * TILE + TILE / 2, cy = coin.y * TILE + TILE / 2;
@@ -433,18 +756,59 @@ function update() {
       const val = coin.value || 1;
       player.coins += val;
       G.coins += val;
+      playSound('coin');
+      for (let i = 0; i < 8; i++) {
+        addParticle(cx, cy, Math.cos(i/8*Math.PI*2)*3, Math.sin(i/8*Math.PI*2)*3, '#FFD700', 40);
+      }
       saveData();
     }
   });
 
+  // COLISÃO COM ESPINHOS
   if (!player.invincible) {
     LD.spikes.forEach(sp => {
-      const sx = sp.x * TILE + 4, sy = sp.y * TILE + 8;
-      if (player.x + player.w > sx && player.x < sx + 12 && player.y + player.h > sy && player.y < sy + 8) hitPlayer();
+      if (sp.type === 'spike') {
+        const sx = sp.x * TILE + 4, sy = sp.y * TILE + 8;
+        if (player.x + player.w > sx && player.x < sx + 12 && player.y + player.h > sy && player.y < sy + 8) {
+          hitPlayer();
+        }
+      } else if (sp.type === 'rotating') {
+        sp.angle += sp.speed;
+        const sx = sp.x * TILE + TILE/2 + Math.cos(sp.angle) * 6;
+        const sy = sp.y * TILE + TILE/2 + Math.sin(sp.angle) * 6;
+        if (Math.hypot(player.x + player.w/2 - sx, player.y + player.h/2 - sy) < 8) hitPlayer();
+      }
+    });
+  }
+
+  // COLISÃO COM ARMADILHAS DE TEMPO
+  if (!player.invincible) {
+    LD.timedTraps.forEach(trap => {
+      if (trap.visible) {
+        const tx = trap.x * TILE, ty = trap.y * TILE;
+        if (player.x + player.w > tx && player.x < tx + TILE && player.y + player.h > ty && player.y < ty + TILE) {
+          hitPlayer();
+        }
+      }
+    });
+  }
+
+  // COLISÃO COM INIMIGOS
+  if (!player.invincible) {
+    LD.enemies.forEach(enemy => {
+      const ex = enemy.x * TILE, ey = enemy.y * TILE;
+      if (player.x + player.w > ex && player.x < ex + TILE*1.5 && player.y + player.h > ey && player.y < ey + TILE*1.5) {
+        hitPlayer();
+      }
     });
   }
 
   if (player.y > LD.H * TILE + 60) hitPlayer();
+
+  // CHECKPOINT A CADA 200 PIXELS
+  if (Math.floor(player.x / 200) > Math.floor((player.x - player.vx) / 200)) {
+    saveCheckpoint();
+  }
 
   const ex = LD.exitX * TILE, ey = LD.exitY * TILE;
   if (player.x + player.w > ex && player.x < ex + TILE && player.y + player.h > ey && player.y < ey + TILE * 2) winLevel();
@@ -490,10 +854,19 @@ function hitPlayer() {
   player.lives--;
   player.invincible = true;
   player.invincTimer = 80;
+  noDeathRun = false;
+  screenShaking = 10;
+  playSound('hit');
+  addDamageNumber(player.x + player.w/2, player.y - 10, '-1', '#FF4444');
+  for (let i = 0; i < 12; i++) {
+    addParticle(player.x + player.w/2, player.y + player.h/2, Math.random()*6-3, Math.random()*6-3, '#FF4444', 50);
+  }
   if (player.lives <= 0) {
     player.dead = true;
     gameRunning = false;
-    document.getElementById('death-msg').textContent = 'Fase ' + G.level + ' — Coletados: 🪙 ' + player.coins;
+    const time = Math.floor((Date.now() - levelStartTime) / 1000);
+    document.getElementById('death-msg').textContent = 'Fase ' + G.level + ' — Coletados: 🪙 ' + player.coins + ' — Tempo: ' + time + 's';
+    document.getElementById('checkpoint-btn').style.display = G.checkpoint ? 'block' : 'none';
     showScreen('death');
   } else {
     player.x = 2 * TILE; player.y = 3 * TILE;
@@ -504,10 +877,43 @@ function hitPlayer() {
 function winLevel() {
   gameRunning = false;
   const bonus = G.level > 40 ? 10 : 5;
+  const timeSpent = Math.floor((Date.now() - levelStartTime) / 1000);
   G.coins += bonus;
   saveData();
+  
+  // Verificar speedrun achievement
+  if (timeSpent < 30) {
+    G.achievements.speedrunner = true;
+  }
+  if (noDeathRun) {
+    G.achievements.hardcore = true;
+  }
+  
+  updateAchievements();
+  
+  // Adicionar ao ranking
+  G.scoreHistory.push({ level: G.level, coins: player.coins, date: Date.now() });
+  localStorage.setItem('pk_history', JSON.stringify(G.scoreHistory.slice(-50)));
+  
   document.getElementById('win-title').textContent = G.level > 40 ? '⚡ FASE EXTRA COMPLETA!' : '🎉 FASE COMPLETA!';
-  document.getElementById('win-msg').textContent = 'Moedas coletadas: 🪙 ' + player.coins + ' (+' + bonus + ' bônus)';
+  
+  let msg = 'Moedas coletadas: 🪙 ' + player.coins + ' (+' + bonus + ' bônus)<br>Tempo: ' + timeSpent + 's';
+  if (timeSpent < 30) msg += '<br>⚡ SPEEDRUN!';
+  if (noDeathRun) msg += '<br>💪 SEM MORRER!';
+  
+  document.getElementById('win-msg').innerHTML = msg;
+  
+  let achievedText = '';
+  ACHIEVEMENTS.forEach(ach => {
+    if (!G.achievements[ach.id] && ach.check()) {
+      achievedText += `✨ ${ach.name}\n`;
+    }
+  });
+  if (achievedText) {
+    document.getElementById('achievements-earned').innerHTML = '<strong>Conquistas desbloqueadas:</strong><br>' + achievedText.split('\n').filter(x=>x).join('<br>');
+  }
+  
+  playSound('win');
   showScreen('win');
 }
 
@@ -524,6 +930,7 @@ function updateCooldownUI() {
   });
 }
 
+// ============ RENDERIZAÇÃO ============
 function draw() {
   if (!LD) return;
   const th = THEMES[LD.theme];
@@ -533,10 +940,21 @@ function draw() {
   for (let i = 0; i < 40; i++) {
     ctx.fillRect(((i * 137 + LD.lvl * 7) % canvas.width), ((i * 73 + LD.lvl * 3) % (canvas.height * 0.6)), 1, 1);
   }
+  
+  // SCREEN SHAKE
+  let shakeX = 0, shakeY = 0;
+  if (screenShaking > 0) {
+    shakeX = (Math.random() - 0.5) * screenShaking;
+    shakeY = (Math.random() - 0.5) * screenShaking;
+    screenShaking *= 0.9;
+  }
+  
   ctx.save();
-  ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
+  ctx.translate(-Math.floor(camera.x) + shakeX, -Math.floor(camera.y) + shakeY);
   const startX = Math.floor(camera.x / TILE), endX = Math.ceil((camera.x + canvas.width) / TILE) + 1;
   const startY = Math.floor(camera.y / TILE), endY = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+  
+  // TILES
   for (let y = startY; y < Math.min(endY, LD.H); y++) {
     for (let x = startX; x < Math.min(endX, LD.W); x++) {
       if (LD.tiles[y] && LD.tiles[y][x] === 1) {
@@ -547,29 +965,68 @@ function draw() {
       }
     }
   }
+  
+  // PLATAFORMAS MÓVEIS
   LD.movingPlats.forEach(mp => {
     const wx = mp.x * TILE, wy = mp.y * TILE;
     ctx.fillStyle = THEMES[LD.theme].ground; ctx.fillRect(wx, wy, 4 * TILE, TILE);
     ctx.fillStyle = '#FFD700'; ctx.fillRect(wx, wy, 4 * TILE, 3);
     ctx.fillStyle = '#333'; ctx.fillRect(wx + 4, wy + 5, 3, 3); ctx.fillRect(wx + 4 * TILE - 7, wy + 5, 3, 3);
   });
+  
+  // ESPINHOS
   ctx.fillStyle = '#FF4444';
   LD.spikes.forEach(sp => {
-    const sx = sp.x * TILE, sy = sp.y * TILE;
-    ctx.beginPath(); ctx.moveTo(sx + 2, sy + 12); ctx.lineTo(sx + TILE / 2, sy + 2); ctx.lineTo(sx + TILE - 2, sy + 12); ctx.fill();
+    if (sp.type === 'spike') {
+      const sx = sp.x * TILE, sy = sp.y * TILE;
+      ctx.beginPath(); ctx.moveTo(sx + 2, sy + 12); ctx.lineTo(sx + TILE / 2, sy + 2); ctx.lineTo(sx + TILE - 2, sy + 12); ctx.fill();
+    } else if (sp.type === 'rotating') {
+      ctx.save();
+      ctx.translate(sp.x * TILE + TILE/2, sp.y * TILE + TILE/2);
+      ctx.rotate(sp.angle);
+      ctx.fillRect(-3, -3, 6, 6);
+      ctx.restore();
+    }
   });
+  
+  // ARMADILHAS DE TEMPO
+  LD.timedTraps.forEach(trap => {
+    if (trap.visible) {
+      ctx.fillStyle = 'rgba(255,100,100,0.5)';
+      ctx.fillRect(trap.x * TILE, trap.y * TILE, TILE, TILE);
+      ctx.strokeStyle = '#FF4444';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(trap.x * TILE, trap.y * TILE, TILE, TILE);
+    }
+  });
+  
+  // MOEDAS
   LD.coins.forEach(coin => {
     if (coin.collected) return;
     const cx = coin.x * TILE + TILE / 2, cy = coin.y * TILE + TILE / 2 + Math.sin(Date.now() / 300 + coin.x) * 2;
-    ctx.fillStyle = coin.value ? '#FF8800' : '#FFD700';
+    ctx.fillStyle = coin.value > 1 ? '#FF8800' : '#FFD700';
     ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#FFF8'; ctx.beginPath(); ctx.arc(cx - 1.5, cy - 1.5, 2, 0, Math.PI * 2); ctx.fill();
   });
+  
+  // INIMIGOS
+  LD.enemies.forEach(enemy => {
+    const ex = enemy.x * TILE, ey = enemy.y * TILE;
+    ctx.fillStyle = '#FF0000';
+    ctx.fillRect(ex, ey, TILE, TILE);
+    ctx.fillStyle = '#FFF';
+    ctx.fillRect(ex + 3, ey + 4, 4, 4);
+    ctx.fillRect(ex + TILE - 7, ey + 4, 4, 4);
+  });
+  
+  // EXIT
   const puls = 0.8 + Math.sin(Date.now() / 200) * 0.2;
   ctx.fillStyle = `rgba(0,255,136,${puls})`;
   ctx.fillRect(LD.exitX * TILE + 2, LD.exitY * TILE, TILE - 4, TILE * 2);
   ctx.fillStyle = '#00FF88'; ctx.font = 'bold 10px Courier New'; ctx.textAlign = 'center';
   ctx.fillText('EXIT', LD.exitX * TILE + TILE / 2, LD.exitY * TILE + 24);
+  
+  // PLAYER
   if (player && !player.dead) {
     const px = Math.floor(player.x), py = Math.floor(player.y);
     const alpha = player.invisible ? 0.3 : player.invincible ? (Math.sin(Date.now() / 80) > 0 ? 0.7 : 1) : 1;
@@ -586,6 +1043,27 @@ function draw() {
     }
     ctx.globalAlpha = 1;
   }
+  
+  // PARTÍCULAS
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+  });
+  ctx.globalAlpha = 1;
+  
+  // DAMAGE NUMBERS
+  damageNumbers = damageNumbers.filter(d => {
+    d.life--;
+    ctx.globalAlpha = d.life / d.maxLife;
+    ctx.fillStyle = d.color;
+    ctx.font = 'bold 14px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.text, d.x, d.y - (d.maxLife - d.life) * 2);
+    return d.life > 0;
+  });
+  ctx.globalAlpha = 1;
+  
   ctx.restore();
 }
 
@@ -603,6 +1081,7 @@ function drawPlayer(px, py, pw, ph, sliding) {
   }
 }
 
+// ============ LOOP ============
 function resize() {
   canvas.width = Math.min(window.innerWidth, 900);
   canvas.height = Math.min(window.innerHeight - 50, 520);
@@ -618,24 +1097,28 @@ function loop(ts = 0) {
   animId = requestAnimationFrame(loop);
 }
 
+// ============ SONS (SIMULADOS) ============
+function playSound(name) {
+  // Aqui você pode adicionar sons reais se quiser
+  // Por enquanto, apenas loga
+  console.log('🔊 Som:', name);
+}
+
+// ============ INICIALIZAÇÃO ============
 updateHUD();
+renderAchievements();
+renderRanking();
 showScreen('menu');
 
-// Mobile controls
-const mc = document.createElement('div');
-mc.style.cssText = 'position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-between;padding:8px;z-index:50;';
+// CONTROLES MÓVEIS
+const mc = document.getElementById('mobile-controls');
 mc.innerHTML = `
-  <div style="display:flex;gap:6px">
-    <button ontouchstart="keys['ArrowLeft']=true" ontouchend="keys['ArrowLeft']=false" style="width:52px;height:52px;background:rgba(255,215,0,0.15);border:2px solid #FFD70088;color:#FFD700;font-size:22px;border-radius:4px;cursor:pointer">◀</button>
-    <button ontouchstart="keys['ArrowRight']=true" ontouchend="keys['ArrowRight']=false" style="width:52px;height:52px;background:rgba(255,215,0,0.15);border:2px solid #FFD70088;color:#FFD700;font-size:22px;border-radius:4px;cursor:pointer">▶</button>
-  </div>
-  <div style="display:flex;gap:6px;align-items:flex-end">
-    <button ontouchstart="handleAbilityKeys('KeyQ')" style="width:44px;height:44px;background:rgba(167,139,250,0.2);border:2px solid #A78BFA88;color:#A78BFA;font-size:18px;border-radius:4px;cursor:pointer">💨</button>
-    <button ontouchstart="handleAbilityKeys('KeyE')" style="width:44px;height:44px;background:rgba(52,211,153,0.2);border:2px solid #34D39988;color:#34D399;font-size:18px;border-radius:4px;cursor:pointer">🛷</button>
-    <button ontouchstart="handleAbilityKeys('Space')" style="width:60px;height:60px;background:rgba(255,215,0,0.2);border:2px solid #FFD70088;color:#FFD700;font-size:26px;border-radius:4px;cursor:pointer">↑</button>
-  </div>
+  <button class="mobile-btn" ontouchstart="keys['ArrowLeft']=true" ontouchend="keys['ArrowLeft']=false">◀</button>
+  <button class="mobile-btn" ontouchstart="keys['ArrowRight']=true" ontouchend="keys['ArrowRight']=false">▶</button>
+  <button class="mobile-btn" ontouchstart="handleAbilityKeys('KeyQ')" style="color:#A78BFA">💨</button>
+  <button class="mobile-btn" ontouchstart="handleAbilityKeys('KeyE')" style="color:#34D399">🛷</button>
+  <button class="mobile-btn" ontouchstart="handleAbilityKeys('Space')" style="color:#FFD700; font-size:24px">↑</button>
 `;
-document.body.appendChild(mc);
 </script>
 </body>
 </html>
