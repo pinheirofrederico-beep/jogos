@@ -6,14 +6,15 @@
 <title>Pixel Runner Pro — Parkour 2D</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0a0a1a; overflow: hidden; font-family: 'Courier New', monospace; }
-  canvas { display: block; image-rendering: pixelated; }
-  #ui { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; }
-  #hud { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(0,0,0,0.7); border-bottom: 2px solid #FFD700; }
+  html { width: 100%; height: 100%; }
+  body { background: #0a0a1a; overflow: hidden; font-family: 'Courier New', monospace; width: 100vw; height: 100vh; }
+  canvas { display: block; image-rendering: pixelated; width: 100%; height: 100%; }
+  #ui { position: fixed; top: 0; left: 0; width: 100%; pointer-events: none; z-index: 40; }
+  #hud { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: rgba(0,0,0,0.8); border-bottom: 3px solid #FFD700; position: fixed; top: 0; left: 0; right: 0; z-index: 40; }
   .hud-item { color: #FFD700; font-size: 13px; text-shadow: 0 0 8px #FFD700; }
   .hud-coins { color: #FFD700; }
-  #screens { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-  .screen { display: none; flex-direction: column; align-items: center; gap: 12px; background: rgba(0,0,10,0.95); border: 3px solid #FFD700; padding: 24px; border-radius: 4px; max-width: 420px; width: 90%; max-height: 90vh; overflow-y: auto; }
+  #screens { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); }
+  .screen { display: none; flex-direction: column; align-items: center; gap: 12px; background: rgba(0,0,10,0.98); border: 4px solid #FFD700; padding: 32px; border-radius: 8px; max-width: 500px; width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 0 40px rgba(255,215,0,0.3); }
   .screen.active { display: flex; z-index: 100; }
   .screen h1 { color: #FFD700; font-size: 22px; text-shadow: 0 0 12px #FFD700; text-align: center; }
   .screen h2 { color: #FFD700; font-size: 16px; text-align: center; }
@@ -38,18 +39,18 @@
   .death-msg { color: #FF4444; font-size: 13px; text-align: center; }
   .win-msg { color: #00FF88; font-size: 13px; text-align: center; }
   .section-title { color: #888; font-size: 11px; text-align: left; width: 100%; border-bottom: 1px solid #333; padding-bottom: 4px; margin-top: 8px; }
-  #abilities-bar { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; pointer-events: none; }
+  #abilities-bar { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; pointer-events: none; z-index: 45; }
   .ability-slot { width: 36px; height: 36px; background: rgba(0,0,0,0.8); border: 2px solid #444; display: flex; align-items: center; justify-content: center; font-size: 16px; border-radius: 3px; position: relative; }
   .ability-slot.ready { border-color: #FFD700; }
   .ability-slot.active { border-color: #00FFFF; background: rgba(0,255,255,0.2); }
   .ability-slot.cooldown { border-color: #FF4444; }
   .cd-bar { position: absolute; bottom: 0; left: 0; height: 3px; background: #FF4444; transition: width 0.1s; border-radius: 0 0 2px 2px; }
-  #checkpoint-indicator { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); background: rgba(0,255,136,0.9); color: #000; padding: 8px 16px; border-radius: 4px; font-size: 12px; font-weight: bold; display: none; pointer-events: none; z-index: 50; }
+  #checkpoint-indicator { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: rgba(0,255,136,0.95); color: #000; padding: 12px 20px; border-radius: 6px; font-size: 14px; font-weight: bold; display: none; pointer-events: none; z-index: 50; box-shadow: 0 0 20px rgba(0,255,136,0.5); }
   .damage-indicator { position: absolute; color: #FF4444; font-weight: bold; font-size: 20px; pointer-events: none; }
   .particle { position: absolute; pointer-events: none; }
-  #mobile-controls { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 8px; z-index: 50; gap: 4px; }
-  .mobile-btn { padding: 12px; background: rgba(255,215,0,0.15); border: 2px solid #FFD70088; color: #FFD700; border-radius: 4px; cursor: pointer; font-size: 20px; font-weight: bold; flex: 1; max-width: 60px; }
-  .mobile-btn:active { background: rgba(255,215,0,0.3); }
+  #mobile-controls { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 12px; z-index: 50; gap: 6px; background: rgba(0,0,0,0.4); }
+  .mobile-btn { padding: 16px 12px; background: rgba(255,215,0,0.2); border: 3px solid #FFD70099; color: #FFD700; border-radius: 6px; cursor: pointer; font-size: 24px; font-weight: bold; flex: 1; max-width: 80px; transition: all 0.1s; }
+  .mobile-btn:active { background: rgba(255,215,0,0.5); transform: scale(0.95); }
   @media (orientation: landscape) { body { width: 100vw; height: 100vh; } }
 </style>
 </head>
@@ -1083,11 +1084,16 @@ function drawPlayer(px, py, pw, ph, sliding) {
 
 // ============ LOOP ============
 function resize() {
-  canvas.width = Math.min(window.innerWidth, 900);
-  canvas.height = Math.min(window.innerHeight - 50, 520);
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 }
 resize();
 window.addEventListener('resize', resize);
+
+// Forçar fullscreen no inicio
+document.addEventListener('DOMContentLoaded', () => {
+  resize();
+});
 
 let lastTime = 0;
 function loop(ts = 0) {
