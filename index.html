@@ -410,8 +410,6 @@ function startGame() {
   paused = false;
   keys = {};
   updateAbilitiesBar();
-  if (animId) cancelAnimationFrame(animId);
-  loop();
 }
 
 function startGameMode(mode) {
@@ -450,8 +448,8 @@ function nextLevel() {
 }
 
 function goMenu() { 
-  gameRunning = false; 
-  if (animId) cancelAnimationFrame(animId); 
+  gameRunning = false;
+  paused = false;
   showScreen('menu'); 
 }
 
@@ -933,6 +931,10 @@ function updateCooldownUI() {
 
 // ============ RENDERIZAÇÃO ============
 function draw() {
+  // Background padrão
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
   if (!LD) return;
   const th = THEMES[LD.theme];
   ctx.fillStyle = th.sky;
@@ -1097,9 +1099,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let lastTime = 0;
 function loop(ts = 0) {
-  if (!gameRunning || paused) return;
   const dt = ts - lastTime; lastTime = ts;
-  if (dt < 200) { update(); draw(); }
+  if (gameRunning && !paused) {
+    if (dt < 200) { update(); draw(); }
+  } else {
+    // Draw background mesmo quando paused
+    draw();
+  }
   animId = requestAnimationFrame(loop);
 }
 
@@ -1116,6 +1122,10 @@ renderAchievements();
 renderRanking();
 showScreen('menu');
 
+// Draw inicial
+ctx.fillStyle = '#0a0a1a';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+
 // CONTROLES MÓVEIS
 const mc = document.getElementById('mobile-controls');
 mc.innerHTML = `
@@ -1125,6 +1135,9 @@ mc.innerHTML = `
   <button class="mobile-btn" ontouchstart="handleAbilityKeys('KeyE')" style="color:#34D399">🛷</button>
   <button class="mobile-btn" ontouchstart="handleAbilityKeys('Space')" style="color:#FFD700; font-size:24px">↑</button>
 `;
+
+// Iniciar loop de renderização
+animId = requestAnimationFrame(loop);
 </script>
 </body>
 </html>
