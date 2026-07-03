@@ -76,9 +76,9 @@
     <button class="btn" onclick="startGame()">▶ JOGAR</button>
     <button class="btn" onclick="showScreen('tutorial')">📖 TUTORIAL</button>
     <button class="btn" onclick="showScreen('modes')">🎮 MODOS</button>
-    <button class="btn" onclick="showScreen('achievements')">🏆 CONQUISTAS</button>
-    <button class="btn" onclick="showScreen('shop')">🏪 LOJA</button>
-    <button class="btn" onclick="showScreen('ranking')">📊 RANKING</button>
+    <button class="btn" onclick="openAchievements()">🏆 CONQUISTAS</button>
+    <button class="btn" onclick="openShop()">🏪 LOJA</button>
+    <button class="btn" onclick="openRanking()">📊 RANKING</button>
     <div class="level-info" id="prestige-info"></div>
   </div>
 
@@ -145,7 +145,7 @@
   <div class="screen" id="screen-pause">
     <h2>⏸ PAUSADO</h2>
     <button class="btn" onclick="resumeGame()">▶ CONTINUAR</button>
-    <button class="btn" onclick="showScreen('shop')">🏪 LOJA</button>
+    <button class="btn" onclick="openShop()">🏪 LOJA</button>
     <button class="btn" onclick="showScreen('pause-achievements')">🏆 CONQUISTAS</button>
     <button class="btn" onclick="goMenu()">🏠 MENU</button>
   </div>
@@ -156,7 +156,7 @@
     <p class="death-msg" id="death-msg"></p>
     <button class="btn" onclick="restartLevel()">🔄 TENTAR NOVAMENTE</button>
     <button class="btn" onclick="loadCheckpoint()" id="checkpoint-btn" style="display:none">📍 VOLTAR AO CHECKPOINT</button>
-    <button class="btn" onclick="showScreen('shop')">🏪 LOJA</button>
+    <button class="btn" onclick="openShop()">🏪 LOJA</button>
     <button class="btn" onclick="goMenu()">🏠 MENU</button>
   </div>
 
@@ -407,17 +407,13 @@ function loadCheckpoint() {
 
 // ============ LÓGICA DE JOGO ============
 function startGame() {
-  console.log('🎮 Iniciando jogo...');
   hideAllScreens();
   LD = generateLevel(G.level);
-  console.log('Level gerado:', LD);
   initPlayer();
-  console.log('Player iniciado:', player);
   gameRunning = true;
   paused = false;
   keys = {};
   updateAbilitiesBar();
-  console.log('🎮 Jogo iniciado!');
 }
 
 function startGameMode(mode) {
@@ -464,6 +460,8 @@ function goMenu() {
 function resumeGame() { paused = false; hideAllScreens(); }
 
 function openShop() { renderShop(); showScreen('shop'); }
+function openAchievements() { renderAchievements(); showScreen('achievements'); }
+function openRanking() { renderRanking(); showScreen('ranking'); }
 
 function closeShop() {
   if (gameRunning && !paused) hideAllScreens();
@@ -1120,24 +1118,18 @@ function resize() {
   if (!canvas) return;
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  console.log('Canvas resized:', canvas.width, 'x', canvas.height);
 }
 
-// Chamar resize múltiplas vezes para garantir
 resize();
 setTimeout(resize, 100);
 window.addEventListener('resize', resize);
 
-// Forçar fullscreen no inicio
 document.addEventListener('DOMContentLoaded', () => {
   resize();
 });
 
 let lastTime = 0;
 function loop(ts = 0) {
-  frameCount++;
-  if (frameCount % 60 === 0) console.log('Frame:', frameCount, 'gameRunning:', gameRunning, 'paused:', paused, 'LD:', LD);
-  
   const dt = ts - lastTime; lastTime = ts;
   
   // Sempre desenha
